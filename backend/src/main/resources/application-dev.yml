@@ -1,0 +1,33 @@
+spring:
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+
+  mail:
+    properties:
+      mail:
+        debug: true
+
+logging:
+  level:
+    root: INFO
+    com.cloudstorage: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.mail: DEBUG
+    org.hibernate.SQL: DEBUG
+
+app:
+  base-url: http://localhost:8080
+  frontend-url: http://localhost:3000
+
+file:
+  storage-type: local
+
+aws:
+  s3:
+    enabled: false

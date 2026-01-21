@@ -1,0 +1,62 @@
+############################
+# GENERAL
+############################
+.DS_Store
+Thumbs.db
+*.log
+
+############################
+# ENV FILES
+############################
+.env
+.env.*
+!.env.example
+
+############################
+# BACKEND (SPRING BOOT / JAVA)
+############################
+# Maven
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# Gradle (if ever used)
+backend/build/
+!backend/**/src/main/**/build/
+!backend/**/src/test/**/build/
+
+# IDEs
+backend/.idea/
+backend/*.iml
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.factorypath
+backend/.apt_generated
+backend/.springBeans
+backend/.sts4-cache
+
+############################
+# FRONTEND (REACT / VITE)
+############################
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+############################
+# IDE / EDITORS
+############################
+.vscode/
+.idea/
+*.iml
+*.ipr
+*.iws
+
+############################
+# OS FILES
+############################
+$RECYCLE.BIN/
+System Volume Information/
+############################
+# UPLOADS / RUNTIME FILES
+############################
+backend/uploads/

@@ -1,0 +1,92 @@
+spring:
+  # ===============================
+  # DATABASE (Use environment variables)
+  # ===============================
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/cloudstorage}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 10
+
+  # ===============================
+  # JPA (Production settings)
+  # ===============================
+  jpa:
+    hibernate:
+      ddl-auto: validate # NEVER use 'update' in production!
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  # ===============================
+  # EMAIL (Use environment variables)
+  # ===============================
+  mail:
+    username: ${EMAIL_USER}
+    password: ${EMAIL_PASSWORD}
+    properties:
+      mail:
+        debug: false
+
+# ===============================
+# SERVER (Production)
+# ===============================
+server:
+  port: ${PORT:8080}
+  error:
+    include-stacktrace: never
+    include-message: always
+
+# ===============================
+# JWT (Use environment variables)
+# ===============================
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# ===============================
+# GOOGLE OAUTH (Use environment variable)
+# ===============================
+google:
+  client:
+    id: ${GOOGLE_CLIENT_ID}
+
+# ===============================
+# APPLICATION (Production URLs)
+# ===============================
+app:
+  base-url: ${APP_BASE_URL:https://your-domain.com}
+  frontend-url: ${APP_FRONTEND_URL:https://your-frontend.com}
+
+# ===============================
+# AWS S3 (Production storage)
+# ===============================
+aws:
+  s3:
+    enabled: ${AWS_S3_ENABLED:true}
+    bucket-name: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION:us-east-1}
+    access-key: ${AWS_ACCESS_KEY}
+    secret-key: ${AWS_SECRET_KEY}
+
+# ===============================
+# FILE STORAGE
+# ===============================
+file:
+  storage-type: ${FILE_STORAGE_TYPE:s3}
+  upload-dir: ${FILE_UPLOAD_DIR:/tmp/uploads}
+
+# ===============================
+# LOGGING (Production)
+# ===============================
+logging:
+  level:
+    root: WARN
+    com.cloudstorage: INFO
+    org.springframework.security: WARN
+    org.springframework.web: WARN
+    org.springframework.mail: WARN
+    org.hibernate: WARN
