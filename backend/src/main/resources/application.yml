@@ -10,17 +10,14 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update # first deploy only
+      ddl-auto: validate
     show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${MAIL_USERNAME}
-    password: ${MAIL_PASSWORD}
+    username: ${EMAIL_USER}
+    password: ${EMAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -30,7 +27,6 @@ spring:
 
   servlet:
     multipart:
-      enabled: true
       max-file-size: 100MB
       max-request-size: 100MB
 
@@ -39,19 +35,18 @@ server:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 604800000
+  expiration: ${JWT_EXPIRATION:604800000}
 
 google:
   client:
-    id: ${GOOGLE_CLIENT_ID:}
+    id: ${GOOGLE_CLIENT_ID}
 
 app:
-  base-url: ${APP_BASE_URL:http://localhost:8080}
-  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
+  base-url: ${APP_BASE_URL}
+  frontend-url: ${APP_FRONTEND_URL}
 
 file:
-  storage-type: local
-  upload-dir: uploads
+  storage-type: s3
 
 share:
   link:
@@ -60,4 +55,5 @@ share:
 
 logging:
   level:
-    root: INFO
+    root: WARN
+    com.cloudstorage: INFO
