@@ -87,7 +87,7 @@ public class SecurityConfig {
             "http://localhost:*",
             "http://127.0.0.1:*",
             "https://*.onrender.com",
-            "https://*.yourdomain.com"
+            "https://cloud-storage-project-tau.vercel.app"
         ));
         
         configuration.setAllowedMethods(Arrays.asList(
