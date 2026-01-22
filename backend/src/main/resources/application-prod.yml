@@ -59,6 +59,7 @@ server:
     include-message: always
     whitelabel:
       enabled: false
+    path: /error
   shutdown: graceful
   tomcat:
     connection-timeout: 20000
