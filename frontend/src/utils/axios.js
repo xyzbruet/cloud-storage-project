@@ -1,11 +1,14 @@
 import axios from 'axios';
 
 // Get API base URL from environment variables
+// This does NOT include '/api' in the path
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
-// Debug logging (remove in production)
-console.log('🔗 Axios Base URL:', API_BASE_URL);
-console.log('🌍 Environment:', import.meta.env.MODE);
+// Debug logging - check console to verify correct URL is being used
+if (import.meta.env.DEV) {
+  console.log('🔗 Axios Base URL:', API_BASE_URL);
+  console.log('🌍 Environment:', import.meta.env.MODE);
+}
 
 // Create axios instance with base configuration
 const axiosInstance = axios.create({
@@ -14,6 +17,7 @@ const axiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: false, // Set to true if using cookies
 });
 
 // ==================== REQUEST INTERCEPTOR ====================
@@ -25,8 +29,10 @@ axiosInstance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Debug logging (remove in production)
-    console.log('📤 Axios Request:', config.method?.toUpperCase(), config.url);
+    // Debug logging in development only
+    if (import.meta.env.DEV) {
+      console.log('📤 Axios Request:', config.method?.toUpperCase(), config.url);
+    }
     
     return config;
   },
@@ -40,8 +46,10 @@ axiosInstance.interceptors.request.use(
 // Handles responses and auth errors globally
 axiosInstance.interceptors.response.use(
   (response) => {
-    // Debug logging (remove in production)
-    console.log('✅ Axios Response:', response.status, response.config.url);
+    // Debug logging in development only
+    if (import.meta.env.DEV) {
+      console.log('✅ Axios Response:', response.status, response.config.url);
+    }
     return response;
   },
   (error) => {
@@ -50,7 +58,7 @@ axiosInstance.interceptors.response.use(
       // Server responded with error status
       const { status, data } = error.response;
       
-      console.error('❌ Axios Error:', {
+      console.error('❌ Axios API Error:', {
         status,
         message: data?.message || error.message,
         url: error.config?.url
@@ -94,7 +102,10 @@ axiosInstance.interceptors.response.use(
         baseURL: API_BASE_URL,
         hint: error.code === 'ECONNABORTED' 
           ? 'Request timeout - server took too long to respond' 
-          : 'Connection failed - check if backend is running'
+          : 'Connection failed - check if backend is running',
+        suggestion: import.meta.env.PROD 
+          ? 'Check if backend is deployed and VITE_API_BASE_URL is set correctly'
+          : 'Make sure backend is running on the correct port'
       });
     } else {
       // Error in request setup
