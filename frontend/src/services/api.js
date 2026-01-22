@@ -3,7 +3,7 @@ import axios from 'axios';
 // =====================================================
 // BASE API URL
 // =====================================================
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 // Validation - Critical for production
 if (!API_BASE_URL) {
@@ -32,7 +32,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true, // ✅ CHANGED: Must be true for CORS
+  withCredentials: true, // ✅ Enable cookies/credentials
 });
 
 // =====================================================
@@ -58,7 +58,9 @@ api.interceptors.request.use(
     );
 
     if (!isPublicAuth) {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || 
+                    localStorage.getItem('authToken') ||
+                    sessionStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
@@ -99,6 +101,7 @@ api.interceptors.response.use(
         error.response.data.startsWith('<!doctype')) {
       console.error('❌ HTML received instead of JSON - Check your API endpoint');
       console.error('Full URL:', error.config?.baseURL + error.config?.url);
+      console.error('This usually means the backend route doesn\'t exist');
     }
 
     // Handle 403 Forbidden
@@ -113,10 +116,21 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       console.warn('⚠️ Unauthorized - Clearing session');
       localStorage.clear();
+      sessionStorage.clear();
       
       if (!window.location.pathname.includes('/login')) {
         window.location.href = '/login';
       }
+    }
+
+    // Handle 400 Bad Request
+    if (error.response?.status === 400) {
+      console.error('❌ 400 Bad Request:', error.response?.data?.message);
+    }
+
+    // Handle 500 Internal Server Error
+    if (error.response?.status === 500) {
+      console.error('❌ 500 Server Error - Check backend logs');
     }
 
     // Log errors (production-safe)
