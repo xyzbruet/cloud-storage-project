@@ -21,7 +21,7 @@ const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 // Debug logs - CORRECTED
 console.log('🔑 Google Client ID:', googleClientId ? 'Loaded ✓' : 'Missing ✗');
-console.log('🔗 API Base URL:', import.meta.env.VITE_API_BASE_URL); // ✅ Changed this line
+console.log('🔗 API Base URL:', import.meta.env.VITE_API_URL); // ✅ Changed this line
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
