@@ -14,9 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.*;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,11 +29,16 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+            )
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints - Root and health checks
+
+                // Health & root
                 .requestMatchers(
                     "/",
                     "/api/health",
@@ -43,37 +46,38 @@ public class SecurityConfig {
                     "/actuator/health",
                     "/error"
                 ).permitAll()
-                
-                // Auth endpoints
+
+                // ✅ ONLY login & register are public
                 .requestMatchers(
-                    "/api/auth/**",
-                    "/api/v1/auth/**"
+                    "/api/auth/login",
+                    "/api/auth/register",
+                    "/api/v1/auth/login",
+                    "/api/v1/auth/register"
                 ).permitAll()
-                
-                // Shared links (no auth required)
+
+                // ✅ AUTH REQUIRED
                 .requestMatchers(
-                    "/api/folders/shared-link/**",
-                    "/api/files/shared-link/**",
-                    "/api/files/s/**"
-                ).permitAll()
-                
-                // Static files
-                .requestMatchers("/uploads/**").permitAll()
-                
-                // Authenticated endpoints
-                .requestMatchers(
+                    "/api/auth/me",
                     "/api/user/**",
                     "/api/files/**",
                     "/api/folders/**",
                     "/api/dashboard/**"
                 ).authenticated()
-                
+
+                // Shared links (no auth)
+                .requestMatchers(
+                    "/api/folders/shared-link/**",
+                    "/api/files/shared-link/**",
+                    "/api/files/s/**",
+                    "/uploads/**"
+                ).permitAll()
+
                 .anyRequest().authenticated()
             )
-            .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(
+                jwtAuthFilter,
+                UsernamePasswordAuthenticationFilter.class
+            );
 
         return http.build();
     }
@@ -81,30 +85,32 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        
-        // For production, replace with your actual frontend URL
+
         configuration.setAllowedOriginPatterns(List.of(
             "http://localhost:*",
             "http://127.0.0.1:*",
             "https://*.onrender.com",
             "https://cloud-storage-project-tau.vercel.app"
         ));
-        
+
         configuration.setAllowedMethods(Arrays.asList(
             "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
         ));
-        
+
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        configuration.setExposedHeaders(Arrays.asList(
+
+        configuration.setExposedHeaders(List.of(
             "Authorization",
             "Content-Type",
             "Content-Disposition"
         ));
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
+
         return source;
     }
 
