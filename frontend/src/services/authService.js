@@ -1,11 +1,13 @@
 // ===================================================================
-// FILE: /src/services/authService.js - COMPLETE & FIXED
+// FILE: /src/services/authService.js - FIXED
 // ===================================================================
 
 import axios from 'axios';
 
-// Fix for process.env - use window variable or hardcoded value
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+// ✅ FIXED: Use VITE_API_BASE_URL instead of VITE_API_URL
+const API_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+
+console.log('🔗 Auth Service API URL:', API_URL);
 
 const api = axios.create({
   baseURL: API_URL,
@@ -47,7 +49,7 @@ export const authService = {
    * Send OTP for registration verification
    */
   sendRegisterOTP: async (data) => {
-    const response = await api.post('/auth/send-register-otp', data);
+    const response = await api.post('/api/auth/send-register-otp', data);
     return response;
   },
 
@@ -55,7 +57,7 @@ export const authService = {
    * Verify OTP and complete registration
    */
   verifyRegisterOTP: async (data) => {
-    const response = await api.post('/auth/verify-register-otp', data);
+    const response = await api.post('/api/auth/verify-register-otp', data);
     if (response.data?.data?.token) {
       localStorage.setItem('token', response.data.data.token);
     }
@@ -68,7 +70,7 @@ export const authService = {
    * Send OTP for login
    */
   sendLoginOTP: async (data) => {
-    const response = await api.post('/auth/send-login-otp', data);
+    const response = await api.post('/api/auth/send-login-otp', data);
     return response;
   },
 
@@ -76,7 +78,7 @@ export const authService = {
    * Verify OTP and login
    */
   verifyLoginOTP: async (data) => {
-    const response = await api.post('/auth/verify-login-otp', data);
+    const response = await api.post('/api/auth/verify-login-otp', data);
     if (response.data?.data?.token) {
       localStorage.setItem('token', response.data.data.token);
     }
@@ -87,7 +89,7 @@ export const authService = {
    * Login with Google OAuth
    */
   googleLogin: async (credential) => {
-    const response = await api.post('/auth/google-login', { 
+    const response = await api.post('/api/auth/google-login', { 
       credential: credential 
     });
     if (response.data?.data?.token) {
@@ -102,7 +104,7 @@ export const authService = {
    * Get current logged-in user information
    */
   getCurrentUser: async () => {
-    const response = await api.get('/auth/me');
+    const response = await api.get('/api/auth/me');
     return response;
   },
 
@@ -121,7 +123,7 @@ export const authService = {
    * Update user profile information
    */
   updateProfile: async (data) => {
-    const response = await api.put('/user/profile', data);
+    const response = await api.put('/api/user/profile', data);
     return response;
   },
 
@@ -131,7 +133,7 @@ export const authService = {
   uploadProfilePicture: async (file) => {
     const formData = new FormData();
     formData.append('profilePicture', file);
-    const response = await api.post('/user/profile-picture', formData, {
+    const response = await api.post('/api/user/profile-picture', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     return response;
@@ -143,7 +145,7 @@ export const authService = {
    * Send OTP for email change verification
    */
   sendOTP: async (email) => {
-    const response = await api.post('/user/send-email-otp', { email });
+    const response = await api.post('/api/user/send-email-otp', { email });
     return response;
   },
 
@@ -151,7 +153,7 @@ export const authService = {
    * Verify OTP and update email
    */
   verifyOTP: async (email, otp) => {
-    const response = await api.post('/user/verify-email-otp', { email, otp });
+    const response = await api.post('/api/user/verify-email-otp', { email, otp });
     return response;
   },
 
