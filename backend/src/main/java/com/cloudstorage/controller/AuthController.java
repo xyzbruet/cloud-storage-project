@@ -39,13 +39,21 @@ public class AuthController {
 
     // ================= SEND REGISTER OTP =================
     @PostMapping("/send-register-otp")
-    public ResponseEntity<ApiResponse<Void>> sendRegisterOTP(
-            @Valid @RequestBody RegisterOTPRequest request) {
+public ResponseEntity<ApiResponse<Void>> sendRegisterOTP(
+        @Valid @RequestBody RegisterOTPRequest request) {
+    try {
+        log.info("Attempting to send OTP to: {}", request.getEmail());
         authService.sendRegisterOTP(request);
         return ResponseEntity.ok(
                 ApiResponse.success("OTP sent to your email", null)
         );
+    } catch (Exception e) {
+        log.error("Failed to send register OTP", e);
+        log.error("Error type: {}", e.getClass().getName());
+        log.error("Error message: {}", e.getMessage());
+        throw e; // Re-throw to let global handler deal with it
     }
+}
 
     // ================= VERIFY REGISTER OTP =================
     @PostMapping("/verify-register-otp")
