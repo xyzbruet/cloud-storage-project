@@ -1,12 +1,14 @@
 import axios from 'axios';
 
-// Get API base URL from environment variables
-// This includes '/api' in the path
+// Get API URL from environment variables
+// This INCLUDES '/api' in the path
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
-// Debug logging (remove in production)
-console.log('🔗 API Base URL:', API_URL);
-console.log('🌍 Environment:', import.meta.env.MODE);
+// Debug logging - check console to verify correct URL is being used
+if (import.meta.env.DEV) {
+  console.log('🔗 API Base URL:', API_URL);
+  console.log('🌍 Environment:', import.meta.env.MODE);
+}
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -15,6 +17,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: false, // Set to true if using cookies
 });
 
 // ==================== REQUEST INTERCEPTOR ====================
@@ -26,8 +29,10 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Debug logging (remove in production)
-    console.log('📤 API Request:', config.method?.toUpperCase(), config.url);
+    // Debug logging in development only
+    if (import.meta.env.DEV) {
+      console.log('📤 API Request:', config.method?.toUpperCase(), config.url);
+    }
     
     return config;
   },
@@ -41,8 +46,10 @@ api.interceptors.request.use(
 // Handles responses and auth errors globally
 api.interceptors.response.use(
   (response) => {
-    // Debug logging (remove in production)
-    console.log('✅ API Response:', response.status, response.config.url);
+    // Debug logging in development only
+    if (import.meta.env.DEV) {
+      console.log('✅ API Response:', response.status, response.config.url);
+    }
     return response;
   },
   (error) => {
@@ -95,7 +102,10 @@ api.interceptors.response.use(
         baseURL: API_URL,
         hint: error.code === 'ECONNABORTED' 
           ? 'Request timeout - server took too long to respond' 
-          : 'Connection failed - check if backend is running'
+          : 'Connection failed - check if backend is running',
+        suggestion: import.meta.env.PROD 
+          ? 'Check if backend is deployed and VITE_API_URL is set correctly'
+          : 'Make sure backend is running on the correct port'
       });
     } else {
       // Error in request setup
