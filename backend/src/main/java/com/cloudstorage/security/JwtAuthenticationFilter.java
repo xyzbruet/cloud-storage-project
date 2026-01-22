@@ -32,10 +32,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
 
-        try {
-            String jwt = getJwtFromRequest(request);
+        String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+        // 🔑 CRITICAL FIX:
+        // If token is missing or invalid, IGNORE IT COMPLETELY
+        if (!StringUtils.hasText(jwt)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        try {
+            if (tokenProvider.validateToken(jwt)) {
 
                 String email = tokenProvider.getEmailFromToken(jwt);
 
@@ -57,16 +64,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     .buildDetails(request)
                     );
 
-                    // 🔥 AUTHENTICATION HAPPENS HERE
                     SecurityContextHolder.getContext()
                             .setAuthentication(authentication);
 
-                    log.info("JWT authenticated user: {}", email);
+                    log.debug("JWT authenticated user: {}", email);
                 }
             }
         } catch (Exception ex) {
-            log.error("JWT authentication failed", ex);
-            SecurityContextHolder.clearContext();
+            // 🚫 DO NOT BLOCK REQUEST
+            // 🚫 DO NOT CLEAR CONTEXT
+            // 🚫 DO NOT THROW
+            log.warn("Ignoring invalid JWT token");
         }
 
         filterChain.doFilter(request, response);
@@ -79,15 +87,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return bearerToken.substring(7);
         }
         return null;
-    }
-
-    // ❗ DO NOT SKIP /api/auth/me
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        return path.equals("/api/auth/login")
-            || path.equals("/api/auth/register")
-            || path.equals("/api/health")
-            || path.equals("/actuator/health");
     }
 }
