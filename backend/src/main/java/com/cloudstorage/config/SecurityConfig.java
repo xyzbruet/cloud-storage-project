@@ -35,16 +35,30 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
             .authorizeHttpRequests(auth -> auth
-                // Public endpoints
+                // Public endpoints - Root and health checks
                 .requestMatchers(
-                    "/api/auth/**",
-                    "/api/folders/shared-link/**",
-                    "/api/files/shared-link/**",
-                    "/api/files/s/**",
-                    "/uploads/**",
+                    "/",
+                    "/api/health",
+                    "/api/v1/health",
                     "/actuator/health",
                     "/error"
                 ).permitAll()
+                
+                // Auth endpoints
+                .requestMatchers(
+                    "/api/auth/**",
+                    "/api/v1/auth/**"
+                ).permitAll()
+                
+                // Shared links (no auth required)
+                .requestMatchers(
+                    "/api/folders/shared-link/**",
+                    "/api/files/shared-link/**",
+                    "/api/files/s/**"
+                ).permitAll()
+                
+                // Static files
+                .requestMatchers("/uploads/**").permitAll()
                 
                 // Authenticated endpoints
                 .requestMatchers(
@@ -68,9 +82,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         
+        // For production, replace with your actual frontend URL
         configuration.setAllowedOriginPatterns(List.of(
             "http://localhost:*",
             "http://127.0.0.1:*",
+            "https://*.onrender.com",
             "https://*.yourdomain.com"
         ));
         
