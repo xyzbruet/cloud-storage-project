@@ -1,56 +1,90 @@
 package com.cloudstorage.security;
 
-import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
-import org.springframework.beans.factory.annotation.Value;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.lang.NonNull;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
-import java.security.Key;
-import java.util.Date;
+import org.springframework.util.StringUtils;
+import org.springframework.web.filter.OncePerRequestFilter;
 
+import java.io.IOException;
+
+@Slf4j
 @Component
-public class JwtTokenProvider {
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
+    private final JwtTokenProvider tokenProvider;
+    private final UserDetailsServiceImpl userDetailsService;
 
-    @Value("${jwt.expiration}")
-    private long jwtExpiration;
+    @Override
+    protected void doFilterInternal(
+            @NonNull HttpServletRequest request,
+            @NonNull HttpServletResponse response,
+            @NonNull FilterChain filterChain
+    ) throws ServletException, IOException {
 
-    private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes());
-    }
-
-    public String generateToken(String email) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpiration);
-
-        return Jwts.builder()
-                .setSubject(email)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
-                .compact();
-    }
-
-    public String getEmailFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(getSigningKey())
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-
-        return claims.getSubject();
-    }
-
-    public boolean validateToken(String token) {
         try {
-            Jwts.parserBuilder()
-                    .setSigningKey(getSigningKey())
-                    .build()
-                    .parseClaimsJws(token);
-            return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            return false;
+            // 1️⃣ Extract JWT from Authorization header
+            String jwt = getJwtFromRequest(request);
+
+            // 2️⃣ Validate token
+            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+
+                // 3️⃣ Extract user identity
+                String email = tokenProvider.getEmailFromToken(jwt);
+
+                // 4️⃣ Authenticate only if not already authenticated
+                if (email != null &&
+                    SecurityContextHolder.getContext().getAuthentication() == null) {
+
+                    UserDetails userDetails =
+                            userDetailsService.loadUserByUsername(email);
+
+                    // 5️⃣ Create authentication token
+                    UsernamePasswordAuthenticationToken authentication =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    authentication.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request)
+                    );
+
+                    // 🔥 6️⃣ Set authentication in SecurityContext
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+
+                    log.debug("JWT authenticated user: {}", email);
+                }
+            }
+        } catch (Exception ex) {
+            // ⚠️ Do NOT break the request chain
+            log.error("JWT authentication failed", ex);
+            SecurityContextHolder.clearContext();
         }
+
+        // 7️⃣ Continue filter chain
+        filterChain.doFilter(request, response);
+    }
+
+    private String getJwtFromRequest(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken)
+                && bearerToken.startsWith("Bearer ")) {
+            return bearerToken.substring(7);
+        }
+        return null;
     }
 }
