@@ -6,9 +6,9 @@ spring:
   # DATABASE
   # ===============================
   datasource:
-    url: jdbc:postgresql://localhost:5432/cloudstorage
-    username: postgres
-    password: postgres
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/cloudstorage}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
 
   # ===============================
@@ -22,6 +22,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
   # ===============================
   # FILE UPLOAD
@@ -29,50 +30,72 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 100MB
-      max-request-size: 100MB
+      max-file-size: ${MAX_FILE_SIZE:100MB}
+      max-request-size: ${MAX_REQUEST_SIZE:100MB}
 
 # ===============================
 # SERVER
 # ===============================
 server:
-  port: 8080
+  port: ${SERVER_PORT:8080}
+  error:
+    include-message: always
+    include-binding-errors: always
 
 # ===============================
 # APPLICATION
 # ===============================
 app:
-  base-url: http://localhost:8080
-  frontend-url: http://localhost:3000
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  frontend-url: ${FRONTEND_URL:http://localhost:3000}
   upload:
-    profile-pictures: uploads/profile-pictures/
-    files: uploads/files/
+    profile-pictures: ${UPLOAD_PROFILE_PICTURES:uploads/profile-pictures/}
+    files: ${UPLOAD_FILES:uploads/files/}
 
 # ===============================
 # FILE STORAGE (Default: Local)
 # ===============================
 file:
-  storage-type: local
-  upload-dir: uploads
+  storage-type: ${FILE_STORAGE_TYPE:local}
+  upload-dir: ${FILE_UPLOAD_DIR:uploads}
 
 # ===============================
 # AWS S3 (Disabled by default)
 # ===============================
 aws:
   s3:
-    enabled: false
+    enabled: ${AWS_S3_ENABLED:false}
+    bucket-name: ${AWS_S3_BUCKET_NAME:}
+    region: ${AWS_S3_REGION:us-east-1}
+    access-key: ${AWS_ACCESS_KEY:}
+    secret-key: ${AWS_SECRET_KEY:}
 
 # ===============================
 # JWT
 # ===============================
 jwt:
-  secret: your-dev-secret-key-change-in-production
-  expiration: 86400000
+  secret: ${JWT_SECRET:your-dev-secret-key-change-in-production}
+  expiration: ${JWT_EXPIRATION:86400000}
+
+# ===============================
+# EMAIL (Optional)
+# ===============================
+mail:
+  host: ${MAIL_HOST:smtp.gmail.com}
+  port: ${MAIL_PORT:587}
+  username: ${MAIL_USERNAME:}
+  password: ${MAIL_PASSWORD:}
+  properties:
+    mail:
+      smtp:
+        auth: true
+        starttls:
+          enable: true
 
 # ===============================
 # LOGGING
 # ===============================
 logging:
   level:
-    root: INFO
-    com.cloudstorage: DEBUG
+    root: ${LOG_LEVEL_ROOT:INFO}
+    com.cloudstorage: ${LOG_LEVEL_APP:DEBUG}

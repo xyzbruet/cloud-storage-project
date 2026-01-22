@@ -56,8 +56,10 @@ public class User {
     private AuthProvider provider;
 
     @Builder.Default
-    @Column(name = "is_active", nullable = false)
+    @Column(name = "is_active", nullable = true)
     private Boolean isActive = true;  // ADDED: Required for UserDetailsService
+
+    
 
     @Builder.Default
     @Column(name = "storage_used", nullable = false)
