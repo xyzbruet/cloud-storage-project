@@ -6,50 +6,22 @@ spring:
   # DATABASE
   # ===============================
   datasource:
-    url: jdbc:${DATABASE_URL:postgresql://localhost:5432/cloudstorage}
-    username: ${DATABASE_USERNAME:postgres}
-    password: ${DATABASE_PASSWORD}
+    url: jdbc:postgresql://localhost:5432/cloudstorage
+    username: postgres
+    password: postgres
     driver-class-name: org.postgresql.Driver
-    hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
-      connection-timeout: 30000
-      idle-timeout: 600000
-      max-lifetime: 1800000
 
   # ===============================
-  # JPA / Hibernate - FIRST DEPLOYMENT
+  # JPA
   # ===============================
   jpa:
     hibernate:
-      ddl-auto: create # ⚠️ CRITICAL: Use 'create' for FIRST deployment
-    show-sql: true # Enable to see SQL during first run
+      ddl-auto: update
+    show-sql: true
     open-in-view: false
-    generate-ddl: true
     properties:
       hibernate:
         format_sql: true
-        jdbc:
-          batch_size: 20
-        order_inserts: true
-        order_updates: true
-
-  # ===============================
-  # EMAIL
-  # ===============================
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${EMAIL_USER}
-    password: ${EMAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-            required: true
-        debug: false
 
   # ===============================
   # FILE UPLOAD
@@ -57,65 +29,45 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: ${MAX_FILE_SIZE:100MB}
-      max-request-size: ${MAX_REQUEST_SIZE:100MB}
+      max-file-size: 100MB
+      max-request-size: 100MB
 
 # ===============================
 # SERVER
 # ===============================
 server:
-  port: ${PORT:8080}
-  error:
-    include-stacktrace: never
-    include-message: always
-  shutdown: graceful
-
-# ===============================
-# JWT
-# ===============================
-jwt:
-  secret: ${JWT_SECRET}
-  expiration: ${JWT_EXPIRATION:86400000}
-
-# ===============================
-# GOOGLE OAUTH
-# ===============================
-google:
-  client:
-    id: ${GOOGLE_CLIENT_ID}
+  port: 8080
 
 # ===============================
 # APPLICATION
 # ===============================
 app:
-  base-url: ${APP_BASE_URL}
-  frontend-url: ${APP_FRONTEND_URL}
+  base-url: http://localhost:8080
+  frontend-url: http://localhost:3000
+  upload:
+    profile-pictures: uploads/profile-pictures/
+    files: uploads/files/
 
 # ===============================
-# AWS S3
+# FILE STORAGE (Default: Local)
+# ===============================
+file:
+  storage-type: local
+  upload-dir: uploads
+
+# ===============================
+# AWS S3 (Disabled by default)
 # ===============================
 aws:
   s3:
-    enabled: ${AWS_S3_ENABLED:true}
-    bucket-name: ${AWS_S3_BUCKET}
-    region: ${AWS_REGION:us-east-1}
-    access-key: ${AWS_ACCESS_KEY}
-    secret-key: ${AWS_SECRET_KEY}
+    enabled: false
 
 # ===============================
-# FILE STORAGE
+# JWT
 # ===============================
-file:
-  storage-type: ${FILE_STORAGE_TYPE:s3}
-  upload-dir: ${FILE_UPLOAD_DIR:/tmp/uploads}
-
-# ===============================
-# SHARE LINKS
-# ===============================
-share:
-  link:
-    base-url: ${APP_FRONTEND_URL}/s
-    default-expiry-days: ${SHARE_LINK_EXPIRY_DAYS:30}
+jwt:
+  secret: your-dev-secret-key-change-in-production
+  expiration: 86400000
 
 # ===============================
 # LOGGING
@@ -124,5 +76,3 @@ logging:
   level:
     root: INFO
     com.cloudstorage: DEBUG
-    org.springframework.security: INFO
-    org.hibernate.SQL: DEBUG
