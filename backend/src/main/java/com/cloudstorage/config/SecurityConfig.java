@@ -30,19 +30,24 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
-            .csrf(csrf -> csrf.disable())
+            // 1️⃣ CORS
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
+            // 2️⃣ CSRF
+            .csrf(csrf -> csrf.disable())
+
+            // 3️⃣ Session management
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            .authorizeHttpRequests(auth -> auth
 
-                // ✅ CORS preflight
+            // 4️⃣ Authorization rules
+            .authorizeHttpRequests(auth -> auth
+                // OPTIONS first (CORS preflight)
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // ✅ Health & root
+                // Public endpoints
                 .requestMatchers(
                     "/",
                     "/api/health",
@@ -50,18 +55,10 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
 
-                // ✅ ALL AUTH ENDPOINTS ARE PUBLIC
+                // Auth endpoints
                 .requestMatchers("/api/auth/**").permitAll()
 
-                // 🔐 PROTECTED APP APIs
-                .requestMatchers(
-                    "/api/user/**",
-                    "/api/files/**",
-                    "/api/folders/**",
-                    "/api/dashboard/**"
-                ).authenticated()
-
-                // ✅ SHARED LINKS
+                // Shared links
                 .requestMatchers(
                     "/api/folders/shared-link/**",
                     "/api/files/shared-link/**",
@@ -69,12 +66,19 @@ public class SecurityConfig {
                     "/uploads/**"
                 ).permitAll()
 
+                // Protected endpoints
+                .requestMatchers(
+                    "/api/user/**",
+                    "/api/files/**",
+                    "/api/folders/**",
+                    "/api/dashboard/**"
+                ).authenticated()
+
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(
-                jwtAuthFilter,
-                UsernamePasswordAuthenticationFilter.class
-            );
+
+            // 5️⃣ JWT filter
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
@@ -83,10 +87,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        configuration.setAllowedOriginPatterns(List.of(
-            "http://localhost:*",
-            "http://127.0.0.1:*",
-            "https://*.onrender.com",
+        configuration.setAllowedOrigins(Arrays.asList(
+            "http://localhost:5173",
+            "http://localhost:3000",
+            "http://127.0.0.1:5173",
+            "http://127.0.0.1:3000",
             "https://cloud-storage-project-tau.vercel.app"
         ));
 
@@ -98,14 +103,14 @@ public class SecurityConfig {
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
-        configuration.setExposedHeaders(List.of(
+        configuration.setExposedHeaders(Arrays.asList(
             "Authorization",
             "Content-Type",
             "Content-Disposition"
         ));
 
         UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+            new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
         return source;
