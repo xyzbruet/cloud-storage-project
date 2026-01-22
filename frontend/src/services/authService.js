@@ -5,7 +5,7 @@ export const authService = {
   
   sendRegisterOTP: async (data) => {
     try {
-      const response = await api.post('/auth/send-register-otp', data);
+      const response = await api.post('/api/auth/send-register-otp', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -51,7 +51,7 @@ export const authService = {
 
   googleLogin: async (credential) => {
     try {
-      const response = await api.post('/auth/google-login', { credential });
+      const response = await api.post('/api/auth/google-login', { credential });
       if (response.data?.data?.token) {
         localStorage.setItem('token', response.data.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
