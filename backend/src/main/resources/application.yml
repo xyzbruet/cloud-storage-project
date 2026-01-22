@@ -18,16 +18,17 @@ spring:
       max-lifetime: 1800000
 
   # ===============================
-  # JPA / Hibernate
+  # JPA / Hibernate - FIRST DEPLOYMENT
   # ===============================
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: false
+      ddl-auto: create # ⚠️ CRITICAL: Use 'create' for FIRST deployment
+    show-sql: true # Enable to see SQL during first run
     open-in-view: false
+    generate-ddl: true
     properties:
       hibernate:
-        format_sql: false
+        format_sql: true
         jdbc:
           batch_size: 20
         order_inserts: true
@@ -117,15 +118,11 @@ share:
     default-expiry-days: ${SHARE_LINK_EXPIRY_DAYS:30}
 
 # ===============================
-# LOGGING (Production)
+# LOGGING
 # ===============================
 logging:
   level:
-    root: WARN
-    com.cloudstorage: INFO
-    org.springframework.security: WARN
-    org.springframework.web: WARN
-    org.springframework.mail: WARN
-    org.hibernate: WARN
-    org.hibernate.SQL: WARN
-    org.hibernate.type.descriptor.sql.BasicBinder: WARN
+    root: INFO
+    com.cloudstorage: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
