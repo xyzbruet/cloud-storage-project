@@ -32,32 +32,28 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .csrf(csrf -> csrf.disable())
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .authorizeHttpRequests(auth -> auth
 
-                // ✅ ALWAYS allow CORS preflight
+                // ✅ CORS preflight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // ✅ Health
+                // ✅ Health & root
                 .requestMatchers(
                     "/",
                     "/api/health",
-                    "/api/v1/health",
                     "/actuator/health",
                     "/error"
                 ).permitAll()
 
-                // ✅ PUBLIC AUTH (OTP, GOOGLE, LOGIN, REGISTER)
+                // ✅ ALL AUTH ENDPOINTS ARE PUBLIC
                 .requestMatchers("/api/auth/**").permitAll()
 
-                // 🔐 PROTECT CURRENT USER
-                .requestMatchers("/api/auth/me").authenticated()
-
-                // 🔐 APP APIs
+                // 🔐 PROTECTED APP APIs
                 .requestMatchers(
                     "/api/user/**",
                     "/api/files/**",
@@ -65,7 +61,7 @@ public class SecurityConfig {
                     "/api/dashboard/**"
                 ).authenticated()
 
-                // ✅ PUBLIC SHARED LINKS
+                // ✅ SHARED LINKS
                 .requestMatchers(
                     "/api/folders/shared-link/**",
                     "/api/files/shared-link/**",
@@ -73,7 +69,6 @@ public class SecurityConfig {
                     "/uploads/**"
                 ).permitAll()
 
-                // 🔐 EVERYTHING ELSE
                 .anyRequest().authenticated()
             )
             .addFilterBefore(
