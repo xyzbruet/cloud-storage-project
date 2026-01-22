@@ -2,11 +2,19 @@ package com.cloudstorage.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(
+    name = "users",
+    indexes = {
+        @Index(name = "idx_users_email", columnList = "email"),
+        @Index(name = "idx_users_google_id", columnList = "google_id")
+    }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,22 +38,26 @@ public class User {
     @Column(nullable = true)
     private String password;
 
-    @Column(name = "phone")
+    @Column(name = "phone", length = 20)
     private String phone;
 
-    @Column(name = "profile_picture")
+    @Column(name = "profile_picture", length = 500)
     private String profilePicture;
 
     @Builder.Default
     @Column(name = "email_verified", nullable = false)
     private Boolean emailVerified = false;
 
-    @Column(name = "google_id", unique = true)
+    @Column(name = "google_id", unique = true, length = 255)
     private String googleId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(nullable = false, length = 20)
     private AuthProvider provider;
+
+    @Builder.Default
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;  // ADDED: Required for UserDetailsService
 
     @Builder.Default
     @Column(name = "storage_used", nullable = false)
@@ -53,7 +65,7 @@ public class User {
 
     @Builder.Default
     @Column(name = "storage_limit", nullable = false)
-    private Long storageLimit = 5368709120L;
+    private Long storageLimit = 5368709120L; // 5GB
 
     @Column(name = "otp_code", length = 6)
     private String otpCode;
@@ -65,17 +77,37 @@ public class User {
     @Column(name = "otp_purpose", length = 20)
     private OtpPurpose otpPurpose;
 
-    @Column(name = "created_at", updatable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(name = "updated_at")
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        if (email != null) email = email.toLowerCase().trim();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
+        if (email != null) {
+            email = email.toLowerCase().trim();
+        }
+        if (isActive == null) {
+            isActive = true;
+        }
+        if (emailVerified == null) {
+            emailVerified = false;
+        }
+        if (storageUsed == null) {
+            storageUsed = 0L;
+        }
+        if (storageLimit == null) {
+            storageLimit = 5368709120L;
+        }
     }
 
     @PreUpdate
@@ -83,6 +115,7 @@ public class User {
         updatedAt = LocalDateTime.now();
     }
 
+    // OTP Methods
     public String generateOTP(OtpPurpose purpose) {
         int otp = 100000 + (int) (Math.random() * 900000);
         this.otpCode = String.valueOf(otp);
@@ -104,9 +137,36 @@ public class User {
         this.otpPurpose = null;
     }
 
+    // Helper methods
+    public boolean isAccountActive() {
+        return isActive != null && isActive;
+    }
+
+    public boolean hasStorageSpace(long fileSize) {
+        return (storageUsed + fileSize) <= storageLimit;
+    }
+
+    public void addStorageUsage(long fileSize) {
+        this.storageUsed += fileSize;
+    }
+
+    public void removeStorageUsage(long fileSize) {
+        this.storageUsed = Math.max(0, this.storageUsed - fileSize);
+    }
+
+    public long getAvailableStorage() {
+        return storageLimit - storageUsed;
+    }
+
+    public double getStorageUsagePercentage() {
+        if (storageLimit == 0) return 0.0;
+        return (storageUsed * 100.0) / storageLimit;
+    }
+
     public enum OtpPurpose {
         LOGIN,
         REGISTER,
-        EMAIL_CHANGE
+        EMAIL_CHANGE,
+        PASSWORD_RESET
     }
 }
