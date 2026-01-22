@@ -90,41 +90,49 @@ public class AuthService {
     }
 
     // ================= SEND REGISTER OTP =================
-    @Transactional
-    public void sendRegisterOTP(RegisterOTPRequest request) {
-        // Check if email already registered and verified
-        userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
-            if (user.getEmailVerified()) {
-                throw new RuntimeException("Email already registered");
-            }
-        });
+@Transactional
+public void sendRegisterOTP(RegisterOTPRequest request) {
+    // Check if email already registered and verified
+    userRepository.findByEmail(request.getEmail()).ifPresent(user -> {
+        if (user.getEmailVerified()) {
+            throw new RuntimeException("Email already registered");
+        }
+    });
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .map(existingUser -> {
-                    // Update existing unverified user
-                    existingUser.setPassword(passwordEncoder.encode(request.getPassword()));
-                    existingUser.setFullName(request.getFullName());
-                    existingUser.setPhone(request.getPhone() != null ? request.getPhone() : "");
-                    return existingUser;
-                })
-                .orElseGet(() -> User.builder()
-                        .email(request.getEmail().toLowerCase().trim())
-                        .password(passwordEncoder.encode(request.getPassword()))
-                        .fullName(request.getFullName())
-                        .phone(request.getPhone() != null ? request.getPhone() : "")
-                        .emailVerified(false)
-                        .provider(AuthProvider.LOCAL)
-                        .build()
-                );
+    User user = userRepository.findByEmail(request.getEmail())
+            .map(existingUser -> {
+                // Update existing unverified user
+                existingUser.setPassword(passwordEncoder.encode(request.getPassword()));
+                existingUser.setFullName(request.getFullName());
+                existingUser.setPhone(request.getPhone() != null ? request.getPhone() : "");
+                return existingUser;
+            })
+            .orElseGet(() -> User.builder()
+                    .email(request.getEmail().toLowerCase().trim())
+                    .password(passwordEncoder.encode(request.getPassword()))
+                    .fullName(request.getFullName())
+                    .phone(request.getPhone() != null ? request.getPhone() : "")
+                    .emailVerified(false)
+                    .provider(AuthProvider.LOCAL)
+                    .build()
+            );
 
-        // Generate and save OTP
-        String otp = user.generateOTP(User.OtpPurpose.REGISTER);
-        userRepository.save(user);
+    // Generate and save OTP
+    String otp = user.generateOTP(User.OtpPurpose.REGISTER);
+    userRepository.save(user);
 
-        // Send OTP email
+    // Send OTP email with error handling
+    try {
         emailService.sendOTPEmail(user.getEmail(), otp, User.OtpPurpose.REGISTER);
         log.info("Register OTP sent to: {}", user.getEmail());
+    } catch (Exception e) {
+        log.error("Failed to send OTP email to: {}", user.getEmail(), e);
+        // Roll back the OTP generation
+        user.clearOTP();
+        userRepository.save(user);
+        throw new RuntimeException("Failed to send OTP email. Please check your email configuration and try again.");
     }
+}
 
     // ================= VERIFY REGISTER OTP =================
     @Transactional
