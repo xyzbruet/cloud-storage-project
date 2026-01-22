@@ -39,10 +39,10 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
 
-                // ✅ ALLOW CORS PREFLIGHT REQUESTS
+                // ✅ ALWAYS allow CORS preflight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                // ✅ HEALTH & ROOT
+                // ✅ Health
                 .requestMatchers(
                     "/",
                     "/api/health",
@@ -51,18 +51,14 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
 
-                // ✅ PUBLIC AUTH (OTP / GOOGLE)
-                .requestMatchers(
-                    "/api/auth/send-login-otp",
-                    "/api/auth/verify-login-otp",
-                    "/api/auth/send-register-otp",
-                    "/api/auth/verify-register-otp",
-                    "/api/auth/google-login"
-                ).permitAll()
+                // ✅ PUBLIC AUTH (OTP, GOOGLE, LOGIN, REGISTER)
+                .requestMatchers("/api/auth/**").permitAll()
 
-                // 🔐 AUTH REQUIRED
+                // 🔐 PROTECT CURRENT USER
+                .requestMatchers("/api/auth/me").authenticated()
+
+                // 🔐 APP APIs
                 .requestMatchers(
-                    "/api/auth/me",
                     "/api/user/**",
                     "/api/files/**",
                     "/api/folders/**",
