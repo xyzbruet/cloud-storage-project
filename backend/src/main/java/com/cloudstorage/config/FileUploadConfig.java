@@ -14,10 +14,10 @@ import java.nio.file.Paths;
 @Configuration
 public class FileUploadConfig {
 
-    @Value("${app.upload.profile-pictures:uploads/profile-pictures/}")
+    @Value("${app.upload.profile-pictures:/tmp/uploads/profile-pictures/}")
     private String profilePicturesPath;
 
-    @Value("${app.upload.files:uploads/files/}")
+    @Value("${app.upload.files:/tmp/uploads/files/}")
     private String filesPath;
 
     @Bean
@@ -30,8 +30,12 @@ public class FileUploadConfig {
         try {
             createDirectoryIfNotExists(profilePicturesPath);
             createDirectoryIfNotExists(filesPath);
+            System.out.println("✓ Upload directories created successfully");
         } catch (Exception e) {
-            throw new RuntimeException("Could not create upload directories", e);
+            // Don't crash - just warn
+            System.err.println("⚠ Warning: Could not create upload directories");
+            System.err.println("  This is expected on Render. Files will be stored temporarily.");
+            System.err.println("  Consider using Cloudinary for permanent storage.");
         }
     }
 
