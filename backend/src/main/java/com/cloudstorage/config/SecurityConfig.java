@@ -38,7 +38,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
 
-                // Health & root
+                // ✅ Health & root
                 .requestMatchers(
                     "/",
                     "/api/health",
@@ -47,15 +47,16 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
 
-                // ✅ ONLY login & register are public
+                // ✅ PUBLIC AUTH (OTP / GOOGLE)
                 .requestMatchers(
-                    "/api/auth/login",
-                    "/api/auth/register",
-                    "/api/v1/auth/login",
-                    "/api/v1/auth/register"
+                    "/api/auth/send-login-otp",
+                    "/api/auth/verify-login-otp",
+                    "/api/auth/send-register-otp",
+                    "/api/auth/verify-register-otp",
+                    "/api/auth/google-login"
                 ).permitAll()
 
-                // ✅ AUTH REQUIRED
+                // 🔐 AUTH REQUIRED
                 .requestMatchers(
                     "/api/auth/me",
                     "/api/user/**",
@@ -64,7 +65,7 @@ public class SecurityConfig {
                     "/api/dashboard/**"
                 ).authenticated()
 
-                // Shared links (no auth)
+                // ✅ PUBLIC SHARED LINKS
                 .requestMatchers(
                     "/api/folders/shared-link/**",
                     "/api/files/shared-link/**",
@@ -72,6 +73,7 @@ public class SecurityConfig {
                     "/uploads/**"
                 ).permitAll()
 
+                // 🔐 EVERYTHING ELSE
                 .anyRequest().authenticated()
             )
             .addFilterBefore(
