@@ -1,76 +1,100 @@
-import axios from "axios";
+import axios from 'axios';
 
 // Get API base URL from environment variables
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
-// Debug log - remove after deployment works
-console.log('🔗 API Base URL:', API_BASE_URL);
+// Debug logging (remove in production)
+console.log('🔗 Axios Base URL:', API_BASE_URL);
 console.log('🌍 Environment:', import.meta.env.MODE);
 
 // Create axios instance with base configuration
-const instance = axios.create({
+const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // Increased to 30 seconds for Render cold starts
+  timeout: 30000, // 30 seconds timeout for slow connections/cold starts
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor - adds auth token to every request
-instance.interceptors.request.use(
+// ==================== REQUEST INTERCEPTOR ====================
+// Automatically adds JWT token to every request
+axiosInstance.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
     
-    // Debug log - remove after deployment works
-    console.log('📤 Request:', config.method?.toUpperCase(), config.url);
+    // Debug logging (remove in production)
+    console.log('📤 Axios Request:', config.method?.toUpperCase(), config.url);
     
     return config;
   },
   (error) => {
-    console.error('❌ Request Error:', error);
+    console.error('❌ Axios Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// Response interceptor - handles responses and errors
-instance.interceptors.response.use(
+// ==================== RESPONSE INTERCEPTOR ====================
+// Handles responses and auth errors globally
+axiosInstance.interceptors.response.use(
   (response) => {
-    // Debug log - remove after deployment works
-    console.log('✅ Response:', response.status, response.config.url);
+    // Debug logging (remove in production)
+    console.log('✅ Axios Response:', response.status, response.config.url);
     return response;
   },
   (error) => {
+    // Handle different error scenarios
     if (error.response) {
-      // Server responded with an error status
-      console.error('❌ API Error:', {
-        status: error.response.status,
-        message: error.response.data?.message || error.response.statusText,
+      // Server responded with error status
+      const { status, data } = error.response;
+      
+      console.error('❌ Axios Error:', {
+        status,
+        message: data?.message || error.message,
         url: error.config?.url
       });
 
-      // Handle 401 Unauthorized - auto logout
-      if (error.response.status === 401) {
-        console.log('🔒 Unauthorized - clearing token and redirecting to login');
+      // Handle 401 Unauthorized - Auto logout
+      if (status === 401) {
+        console.log('🔒 Unauthorized - logging out');
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         
-        // Prevent redirect loop on login/register pages
+        // Prevent redirect loop on auth pages
         const currentPath = window.location.pathname;
-        if (!currentPath.includes('/login') && !currentPath.includes('/register')) {
+        if (!currentPath.includes('/login') && 
+            !currentPath.includes('/register') && 
+            !currentPath.includes('/forgot-password')) {
           window.location.href = '/login';
         }
       }
+
+      // Handle 403 Forbidden
+      if (status === 403) {
+        console.warn('⛔ Forbidden - insufficient permissions');
+      }
+
+      // Handle 404 Not Found
+      if (status === 404) {
+        console.warn('🔍 Not Found:', error.config?.url);
+      }
+
+      // Handle 500 Internal Server Error
+      if (status >= 500) {
+        console.error('💥 Server Error - please try again later');
+      }
+
     } else if (error.request) {
       // Request was made but no response received
-      console.error('❌ No Response from Backend:', {
+      console.error('❌ No Response from Server:', {
         message: 'Backend server is not responding',
         url: error.config?.url,
         baseURL: API_BASE_URL,
-        timeout: error.code === 'ECONNABORTED' ? 'Request timeout' : 'Connection failed',
-        hint: 'Check if your backend is running on Render. It may be spinning up from cold start (takes ~30-60s)'
+        hint: error.code === 'ECONNABORTED' 
+          ? 'Request timeout - server took too long to respond' 
+          : 'Connection failed - check if backend is running'
       });
     } else {
       // Error in request setup
@@ -81,4 +105,4 @@ instance.interceptors.response.use(
   }
 );
 
-export default instance;
+export default axiosInstance;
