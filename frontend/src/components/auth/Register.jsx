@@ -10,8 +10,8 @@ import OTPInput from './OTPInput';
 
 export default function Register() {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore(); // Use setAuth instead of setToken/setUser
-  const { showToast } = useToast();
+  const { setAuth } = useAuthStore();
+  const toast = useToast(); // Changed from { showToast }
   
   const [step, setStep] = useState('register');
   const [formData, setFormData] = useState({
@@ -46,12 +46,12 @@ export default function Register() {
       
       if (response.data.success) {
         setStep('otp');
-        showToast('OTP sent to your email!', 'success');
+        toast.success('OTP sent to your email!'); // Fixed
       }
     } catch (err) {
       const message = err.response?.data?.message || 'Registration failed. Please try again.';
       setError(message);
-      showToast(message, 'error');
+      toast.error(message); // Fixed
       console.error('Send register OTP error:', err);
     } finally {
       setLoading(false);
@@ -71,19 +71,17 @@ export default function Register() {
       if (response.data.success && response.data.data) {
         const { token, user } = response.data.data;
         
-        // Update Zustand store with setAuth
         setAuth(token, user);
-        
-        showToast('Registration successful! Welcome aboard!', 'success');
+        toast.success('Registration successful! Welcome aboard!'); // Fixed
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
       const message = err.response?.data?.message || 'Invalid OTP. Please try again.';
       setError(message);
-      showToast(message, 'error');
+      toast.error(message); // Fixed
       console.error('Verify register OTP error:', err);
       setLoading(false);
-      throw err; // Re-throw for OTPInput component
+      throw err;
     }
   };
 
@@ -93,18 +91,18 @@ export default function Register() {
       
       if (response.data.success) {
         setError('');
-        showToast('New OTP sent to your email!', 'success');
+        toast.success('New OTP sent to your email!'); // Fixed
       }
     } catch (err) {
       const message = 'Failed to resend OTP';
       setError(message);
-      showToast(message, 'error');
+      toast.error(message); // Fixed
     }
   };
 
   const handleChange = (field, value) => {
     setFormData({ ...formData, [field]: value });
-    setError(''); // Clear error when user types
+    setError('');
   };
 
   return (

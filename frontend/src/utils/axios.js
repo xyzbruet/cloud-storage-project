@@ -1,16 +1,27 @@
 import axios from 'axios';
 
-// ================= BASE URL =================
-const API_URL =
-  import.meta.env.VITE_API_URL || 'http://localhost:8080';
+// =====================================================
+// BASE API URL
+// =====================================================
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-// Debug logging
-if (import.meta.env.DEV) {
-  console.log('🔗 Axios Base URL:', API_URL);
-  console.log('🌍 Environment:', import.meta.env.MODE);
+// Validation - Critical for production
+if (!API_BASE_URL) {
+  console.error('❌ CRITICAL: VITE_API_URL is not defined in environment variables');
+  throw new Error('API_BASE_URL is required');
 }
 
-// ================= AXIOS INSTANCE =================
+// Debug logs
+if (import.meta.env.DEV) {
+  console.log('🔗 Axios Base URL:', API_BASE_URL);
+  console.log('🌍 Environment:', import.meta.env.MODE);
+} else {
+  console.log('🚀 Production Axios configured');
+}
+
+// =====================================================
+// AXIOS INSTANCE
+// =====================================================
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -20,33 +31,34 @@ const axiosInstance = axios.create({
   withCredentials: false,
 });
 
-// ================= PUBLIC AUTH ENDPOINTS =================
+// =====================================================
+// PUBLIC AUTH ENDPOINTS
+// =====================================================
 const PUBLIC_AUTH_ENDPOINTS = [
-  '/api/auth/send-login-otp',
-  '/api/auth/verify-login-otp',
-  '/api/auth/send-register-otp',
-  '/api/auth/verify-register-otp',
-  '/api/auth/google-login',
+  '/auth/send-login-otp',
+  '/auth/verify-login-otp',
+  '/auth/send-register-otp',
+  '/auth/verify-register-otp',
+  '/auth/google-login',
 ];
 
-// ================= REQUEST INTERCEPTOR =================
+// =====================================================
+// REQUEST INTERCEPTOR
+// =====================================================
 axiosInstance.interceptors.request.use(
   (config) => {
     const requestUrl = config.url || '';
 
-    // Check if endpoint is public auth
     const isPublicAuth = PUBLIC_AUTH_ENDPOINTS.some((endpoint) =>
       requestUrl.includes(endpoint)
     );
 
-    // Attach token ONLY for protected endpoints
     if (!isPublicAuth) {
       const token = localStorage.getItem('token');
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     } else {
-      // Ensure no Authorization header is sent
       delete config.headers.Authorization;
     }
 
@@ -62,59 +74,39 @@ axiosInstance.interceptors.request.use(
     return config;
   },
   (error) => {
-    console.error('❌ Axios Request Error:', error);
+    console.error('❌ Request Error:', error);
     return Promise.reject(error);
   }
 );
 
-// ================= RESPONSE INTERCEPTOR =================
+// =====================================================
+// RESPONSE INTERCEPTOR
+// =====================================================
 axiosInstance.interceptors.response.use(
   (response) => {
     if (import.meta.env.DEV) {
-      console.log(
-        '✅ Axios Response:',
-        response.status,
-        response.config.url
-      );
+      console.log('✅ Response:', response.config.url, response.status);
     }
     return response;
   },
   (error) => {
-    if (error.response) {
-      const { status, data } = error.response;
-
-      console.error('❌ Axios API Error:', {
-        status,
-        message: data?.message || error.message,
-        url: error.config?.url,
-      });
-
-      // 🔐 Auto logout ONLY on 401
-      if (status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-
-        const path = window.location.pathname;
-        if (
-          !path.includes('/login') &&
-          !path.includes('/register') &&
-          !path.includes('/forgot-password')
-        ) {
-          window.location.href = '/login';
-        }
+    if (error.response?.status === 401) {
+      console.warn('⚠️ Unauthorized - Clearing session');
+      localStorage.clear();
+      
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
       }
+    }
 
-      if (status === 403) {
-        console.warn('⛔ Forbidden - insufficient permissions');
-      }
-    } else if (error.request) {
-      console.error('❌ No Response from Server:', {
-        message: 'Backend server is not responding',
+    if (import.meta.env.DEV) {
+      console.error('❌ API Error:', {
         url: error.config?.url,
-        baseURL: API_BASE_URL,
+        status: error.response?.status,
+        message: error.response?.data?.message || error.message,
       });
     } else {
-      console.error('❌ Request Setup Error:', error.message);
+      console.error('API Error:', error.response?.status, error.config?.url);
     }
 
     return Promise.reject(error);

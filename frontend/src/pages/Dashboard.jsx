@@ -51,7 +51,7 @@ export default function Home() {
       let userStorageLimit = 5 * 1024 * 1024 * 1024; // Default 5GB
 
       try {
-        const userResponse = await axios.get('/api/auth/me');
+        const userResponse = await axios.get('/auth/me');
         if (userResponse.data) {
           const userData = userResponse.data.user || userResponse.data;
           if (userData.storageUsed !== undefined && userData.storageLimit !== undefined) {

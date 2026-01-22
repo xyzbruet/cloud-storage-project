@@ -9,10 +9,10 @@ import { Cloud } from 'lucide-react';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { showToast } = useToast();
+  const toast = useToast(); // Changed from { showToast }
   const { setAuth } = useAuthStore();
 
-  const [step, setStep] = useState('login'); // 'login' or 'otp'
+  const [step, setStep] = useState('login');
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -33,11 +33,11 @@ export default function Login() {
 
       if (response.data.success) {
         setStep('otp');
-        showToast('OTP sent to your email!', 'success');
+        toast.success('OTP sent to your email!'); // Fixed
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Failed to send OTP';
-      showToast(message, 'error');
+      toast.error(message); // Fixed
       console.error('Send OTP error:', error);
     } finally {
       setLoading(false);
@@ -58,17 +58,13 @@ export default function Login() {
       if (response.data.success && response.data.data) {
         const { token, user } = response.data.data;
         
-        // Update Zustand store
         setAuth(token, user);
-        
-        showToast('Login successful!', 'success');
-        
-        // Navigate to dashboard
+        toast.success('Login successful!'); // Fixed
         navigate('/dashboard', { replace: true });
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Invalid OTP';
-      showToast(message, 'error');
+      toast.error(message); // Fixed
       console.error('Verify OTP error:', error);
     } finally {
       setLoading(false);
@@ -84,15 +80,13 @@ export default function Login() {
       if (response.data.success && response.data.data) {
         const { token, user } = response.data.data;
         
-        // Update Zustand store
         setAuth(token, user);
-        
-        showToast('Login successful!', 'success');
+        toast.success('Login successful!'); // Fixed
         navigate('/dashboard', { replace: true });
       }
     } catch (error) {
       const message = error.response?.data?.message || 'Google login failed';
-      showToast(message, 'error');
+      toast.error(message); // Fixed
       console.error('Google login error:', error);
     } finally {
       setLoading(false);
@@ -100,7 +94,7 @@ export default function Login() {
   };
 
   const handleGoogleError = () => {
-    showToast('Google login failed', 'error');
+    toast.error('Google login failed'); // Fixed
   };
 
   const handleChange = (e) => {
@@ -118,9 +112,9 @@ export default function Login() {
         password: formData.password
       });
       setFormData({ ...formData, otp: '' });
-      showToast('New OTP sent!', 'success');
+      toast.success('New OTP sent!'); // Fixed
     } catch (error) {
-      showToast('Failed to resend OTP', 'error');
+      toast.error('Failed to resend OTP'); // Fixed
     } finally {
       setLoading(false);
     }
@@ -245,7 +239,7 @@ export default function Login() {
           </form>
         )}
 
-        {/* Google Sign In - Only show on login step */}
+        {/* Google Sign In */}
         {step === 'login' && (
           <>
             <div className="relative my-6">

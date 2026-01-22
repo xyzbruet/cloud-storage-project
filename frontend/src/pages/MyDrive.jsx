@@ -161,8 +161,8 @@ export default function MyDrive() {
 
       // ================= FETCH FILES =================
       const filesUrl = currentFolder
-        ? `/api/files?folderId=${currentFolder}`
-        : `/api/files`;
+        ? `/files?folderId=${currentFolder}`
+        : `/files`;
       
       debug.filesUrl = filesUrl;
 
@@ -183,8 +183,8 @@ export default function MyDrive() {
 
       // ================= FETCH FOLDERS =================
       const foldersUrl = currentFolder
-        ? `/api/folders/${currentFolder}/subfolders`
-        : `/api/folders`;
+        ? `/folders/${currentFolder}/subfolders`
+        : `/folders`;
 
       debug.foldersUrl = foldersUrl;
 
@@ -265,7 +265,7 @@ export default function MyDrive() {
 
     try {
       const token = getAuthToken();
-      const response = await fetch('/api/files/upload', {
+      const response = await fetch('/files/upload', {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
         body: formData
@@ -385,7 +385,7 @@ const handleSidebarUpload = async (files, uploadType) => {
           formData.append('file', fileInfo.file);
           formData.append('folderId', currentParentId);
           
-          const uploadResponse = await fetch('/api/files/upload', {
+          const uploadResponse = await fetch('/files/upload', {
             method: 'POST',
             headers: token ? { 'Authorization': `Bearer ${token}` } : {},
             body: formData
@@ -432,7 +432,7 @@ const handleSidebarUpload = async (files, uploadType) => {
         payload.parentId = currentFolder;
       }
       
-      const response = await fetch('/api/folders', {
+      const response = await fetch('/folders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

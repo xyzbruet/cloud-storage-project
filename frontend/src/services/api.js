@@ -1,54 +1,137 @@
 import axios from 'axios';
 
-// Base URL MUST include /api
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+// =====================================================
+// BASE API URL
+// =====================================================
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-if (import.meta.env.DEV) {
-  console.log('🔗 API Base URL:', API_URL);
-  console.log('🌍 Environment:', import.meta.env.MODE);
+// Validation - Critical for production
+if (!API_BASE_URL) {
+  console.error('❌ CRITICAL: VITE_API_URL is not defined in environment variables');
+  throw new Error('API_BASE_URL is required');
 }
 
+// Remove trailing slash if present
+const normalizedBaseURL = API_BASE_URL.replace(/\/$/, '');
+
+// Debug logs (DEV only)
+if (import.meta.env.DEV) {
+  console.log('🔗 API Base URL:', normalizedBaseURL);
+  console.log('🌍 Environment:', import.meta.env.MODE);
+} else {
+  // Production - log once for verification
+  console.log('🚀 Production API URL configured:', normalizedBaseURL);
+}
+
+// =====================================================
+// AXIOS INSTANCE
+// =====================================================
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: normalizedBaseURL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true, // ✅ CHANGED: Must be true for CORS
 });
 
+// =====================================================
+// PUBLIC AUTH ENDPOINTS
+// =====================================================
+const PUBLIC_AUTH_ENDPOINTS = [
+  '/auth/send-login-otp',
+  '/auth/verify-login-otp',
+  '/auth/send-register-otp',
+  '/auth/verify-register-otp',
+  '/auth/google-login',
+];
+
+// =====================================================
+// REQUEST INTERCEPTOR
+// =====================================================
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+    const requestUrl = config.url || '';
+
+    const isPublicAuth = PUBLIC_AUTH_ENDPOINTS.some((endpoint) =>
+      requestUrl.includes(endpoint)
+    );
+
+    if (!isPublicAuth) {
+      const token = localStorage.getItem('token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    } else {
+      delete config.headers.Authorization;
     }
 
     if (import.meta.env.DEV) {
-      console.log('📤 API Request:', config.method?.toUpperCase(), config.url);
+      console.log(
+        '📤 API Request:',
+        config.method?.toUpperCase(),
+        config.baseURL + requestUrl,
+        isPublicAuth ? '(public)' : '(protected)'
+      );
     }
 
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    console.error('❌ Request Error:', error);
+    return Promise.reject(error);
+  }
 );
 
+// =====================================================
+// RESPONSE INTERCEPTOR
+// =====================================================
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (import.meta.env.DEV) {
+      console.log('✅ Response:', response.config.url, response.status);
+    }
+    return response;
+  },
   (error) => {
-    if (error.response) {
-      const { status, data } = error.response;
+    // Handle HTML responses (wrong endpoint)
+    if (error.response?.data && typeof error.response.data === 'string' && 
+        error.response.data.startsWith('<!doctype')) {
+      console.error('❌ HTML received instead of JSON - Check your API endpoint');
+      console.error('Full URL:', error.config?.baseURL + error.config?.url);
+    }
 
-      if (typeof data === 'string' && data.startsWith('<!doctype')) {
-        console.error('❌ HTML received instead of JSON (wrong endpoint)');
-      }
+    // Handle 403 Forbidden
+    if (error.response?.status === 403) {
+      console.error('❌ 403 Forbidden');
+      console.error('URL:', error.config?.baseURL + error.config?.url);
+      console.error('Origin:', window.location.origin);
+      console.error('Response:', error.response?.data);
+    }
 
-      if (status === 401) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        if (!window.location.pathname.includes('/login')) {
-          window.location.href = '/login';
-        }
+    // Handle 401 Unauthorized
+    if (error.response?.status === 401) {
+      console.warn('⚠️ Unauthorized - Clearing session');
+      localStorage.clear();
+      
+      if (!window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
       }
+    }
+
+    // Log errors (production-safe)
+    if (import.meta.env.DEV) {
+      console.error('❌ API Error:', {
+        url: error.config?.url,
+        fullURL: error.config?.baseURL + error.config?.url,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.response?.data?.message || error.message,
+        data: error.response?.data,
+      });
+    } else {
+      // Production - minimal logging
+      console.error('API Error:', error.response?.status, error.config?.url);
     }
 
     return Promise.reject(error);
