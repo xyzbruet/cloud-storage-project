@@ -1,4 +1,3 @@
-// src/main.jsx
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -20,9 +19,9 @@ const queryClient = new QueryClient({
 // Get Google Client ID
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
-// Debug log
+// Debug logs - CORRECTED
 console.log('🔑 Google Client ID:', googleClientId ? 'Loaded ✓' : 'Missing ✗');
-console.log('🌐 API URL:', import.meta.env.VITE_API_URL || 'http://localhost:8080/api');
+console.log('🔗 API Base URL:', import.meta.env.VITE_API_BASE_URL); // ✅ Changed this line
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
