@@ -5,7 +5,7 @@ export const authService = {
   
   sendRegisterOTP: async (data) => {
     try {
-      const response = await api.post('/api/auth/send-register-otp', data);
+      const response = await api.post('/auth/send-register-otp', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
