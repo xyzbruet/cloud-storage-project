@@ -1,11 +1,12 @@
-import api from './api';
+import api from './api'; // ✅ Correct - same directory
 
 export const authService = {
   // ==================== REGISTRATION WITH OTP ====================
   
   sendRegisterOTP: async (data) => {
     try {
-      const response = await api.post('/api/auth/send-register-otp', data);
+      // ✅ REMOVE /api prefix - baseURL already has it
+      const response = await api.post('/auth/send-register-otp', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -14,7 +15,8 @@ export const authService = {
 
   verifyRegisterOTP: async (data) => {
     try {
-      const response = await api.post('/api/auth/verify-register-otp', data);
+      // ✅ REMOVE /api prefix
+      const response = await api.post('/auth/verify-register-otp', data);
       if (response.data?.data?.token) {
         localStorage.setItem('token', response.data.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
@@ -29,7 +31,8 @@ export const authService = {
 
   sendLoginOTP: async (data) => {
     try {
-      const response = await api.post('/api/auth/send-login-otp', data);
+      // ✅ REMOVE /api prefix
+      const response = await api.post('/auth/send-login-otp', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -38,7 +41,8 @@ export const authService = {
 
   verifyLoginOTP: async (data) => {
     try {
-      const response = await api.post('/api/auth/verify-login-otp', data);
+      // ✅ REMOVE /api prefix
+      const response = await api.post('/auth/verify-login-otp', data);
       if (response.data?.data?.token) {
         localStorage.setItem('token', response.data.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
@@ -51,7 +55,8 @@ export const authService = {
 
   googleLogin: async (credential) => {
     try {
-      const response = await api.post('/api/auth/google-login', { credential });
+      // ✅ REMOVE /api prefix
+      const response = await api.post('/auth/google-login', { credential });
       if (response.data?.data?.token) {
         localStorage.setItem('token', response.data.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
@@ -66,7 +71,8 @@ export const authService = {
 
   getCurrentUser: async () => {
     try {
-      const response = await api.get('/api/auth/me');
+      // ✅ REMOVE /api prefix
+      const response = await api.get('/auth/me');
       if (response.data?.data?.user) {
         localStorage.setItem('user', JSON.stringify(response.data.data.user));
       }
@@ -90,7 +96,8 @@ export const authService = {
 
   updateProfile: async (data) => {
     try {
-      const response = await api.put('/api/user/profile', data);
+      // ✅ REMOVE /api prefix
+      const response = await api.put('/user/profile', data);
       return response.data;
     } catch (error) {
       throw error.response?.data || error;
@@ -101,7 +108,8 @@ export const authService = {
     try {
       const formData = new FormData();
       formData.append('profilePicture', file);
-      const response = await api.post('/api/user/profile-picture', formData, {
+      // ✅ REMOVE /api prefix
+      const response = await api.post('/user/profile-picture', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       return response.data;
