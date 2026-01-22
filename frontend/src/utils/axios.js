@@ -1,12 +1,12 @@
 import axios from 'axios';
 
 // ================= BASE URL =================
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const API_URL =
+  import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 // Debug logging
 if (import.meta.env.DEV) {
-  console.log('🔗 Axios Base URL:', API_BASE_URL);
+  console.log('🔗 Axios Base URL:', API_URL);
   console.log('🌍 Environment:', import.meta.env.MODE);
 }
 
