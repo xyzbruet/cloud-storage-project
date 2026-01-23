@@ -35,11 +35,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         String method = request.getMethod();
         
-        log.debug("JWT Filter: {} {}", method, path);
+        log.info("🔍 JWT Filter: {} {} - Authorization Header: {}", 
+            method, path, request.getHeader("Authorization") != null ? "Present ✅" : "Missing ❌");
         
         // Skip JWT validation for public endpoints
         if (isPublicEndpoint(path)) {
-            log.debug("Public endpoint - skipping JWT validation: {}", path);
+            log.info("🔓 Public endpoint - skipping JWT validation: {}", path);
             filterChain.doFilter(request, response);
             return;
         }
@@ -47,34 +48,50 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
-                String email = tokenProvider.getEmailFromToken(jwt);
+            if (StringUtils.hasText(jwt)) {
+                log.info("🔑 JWT token found, validating...");
+                
+                if (tokenProvider.validateToken(jwt)) {
+                    String email = tokenProvider.getEmailFromToken(jwt);
+                    log.info("✅ JWT valid for user: {}", email);
 
-                if (email != null && 
-                    SecurityContextHolder.getContext().getAuthentication() == null) {
+                    if (email != null && 
+                        SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                    UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    userDetails.getAuthorities()
-                            );
+                        UsernamePasswordAuthenticationToken authentication =
+                                new UsernamePasswordAuthenticationToken(
+                                        userDetails,
+                                        null,
+                                        userDetails.getAuthorities()
+                                );
 
-                    authentication.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request)
-                    );
+                        authentication.setDetails(
+                                new WebAuthenticationDetailsSource().buildDetails(request)
+                        );
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                    log.debug("JWT authenticated user: {}", email);
+                        SecurityContextHolder.getContext().setAuthentication(authentication);
+                        log.info("✅ JWT authenticated user: {}", email);
+                    }
+                } else {
+                    log.warn("❌ JWT validation failed for: {}", path);
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.getWriter().write("{\"error\": \"Invalid or expired token\"}");
+                    return;
                 }
             } else {
-                log.debug("No valid JWT found for protected endpoint: {}", path);
+                log.warn("⚠️ No JWT token found for protected endpoint: {}", path);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.getWriter().write("{\"error\": \"No authentication token provided\"}");
+                return;
             }
         } catch (Exception ex) {
-            log.error("JWT authentication failed for {}: {}", path, ex.getMessage());
+            log.error("❌ JWT authentication failed for {}: {}", path, ex.getMessage(), ex);
             SecurityContextHolder.clearContext();
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.getWriter().write("{\"error\": \"Authentication failed\"}");
+            return;
         }
 
         filterChain.doFilter(request, response);
@@ -94,13 +111,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                path.startsWith("/uploads/") ||
                path.equals("/") ||
                path.equals("/error");
-        
-        // Future: Add OTP/Google endpoints when enabled
-        // path.startsWith("/api/auth/send-login-otp") ||
-        // path.startsWith("/api/auth/verify-login-otp") ||
-        // path.startsWith("/api/auth/send-register-otp") ||
-        // path.startsWith("/api/auth/verify-register-otp") ||
-        // path.startsWith("/api/auth/google-login");
     }
 
     /**
@@ -112,7 +122,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             String token = bearerToken.substring(7);
-            log.debug("JWT token extracted from Authorization header");
+            log.debug("JWT token extracted from Authorization header (length: {})", token.length());
             return token;
         }
         

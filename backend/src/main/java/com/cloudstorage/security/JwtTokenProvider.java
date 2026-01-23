@@ -14,15 +14,18 @@ import java.util.Date;
 @Component
 public class JwtTokenProvider {
 
-    @Value("${jwt.secret}")  // ✅ Changed from ${JWT_SECRET}
+    @Value("${jwt.secret}")
     private String jwtSecret;
 
-    @Value("${jwt.expiration}")  // ✅ Changed from ${JWT_EXPIRATION}
+    @Value("${jwt.expiration}")
     private long jwtExpirationMs;
 
     public String generateToken(String email) {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationMs);
+
+        log.info("🔑 Generating JWT token for user: {}", email);
+        log.debug("Token will expire at: {}", expiryDate);
 
         return Jwts.builder()
                 .setSubject(email)
@@ -44,21 +47,24 @@ public class JwtTokenProvider {
 
     public boolean validateToken(String authToken) {
         try {
+            log.debug("🔍 Validating JWT token...");
             Jwts.parserBuilder()
                     .setSigningKey(getSigningKey())
                     .build()
                     .parseClaimsJws(authToken);
+            log.debug("✅ JWT token is valid");
             return true;
         } catch (SecurityException ex) {
-            log.error("Invalid JWT signature");
+            log.error("❌ Invalid JWT signature: {}", ex.getMessage());
         } catch (MalformedJwtException ex) {
-            log.error("Invalid JWT token");
+            log.error("❌ Invalid JWT token: {}", ex.getMessage());
         } catch (ExpiredJwtException ex) {
-            log.error("Expired JWT token");
+            log.error("❌ Expired JWT token. Expired at: {}", ex.getClaims().getExpiration());
+            log.error("Current time: {}", new Date());
         } catch (UnsupportedJwtException ex) {
-            log.error("Unsupported JWT token");
+            log.error("❌ Unsupported JWT token: {}", ex.getMessage());
         } catch (IllegalArgumentException ex) {
-            log.error("JWT claims string is empty");
+            log.error("❌ JWT claims string is empty: {}", ex.getMessage());
         }
         return false;
     }
