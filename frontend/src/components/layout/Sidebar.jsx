@@ -13,7 +13,8 @@ import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../services/api';
 
-import UploadMenu from '../common/UploadMenu';'../components/common/UploadMenu';
+import UploadMenu from '../common/UploadMenu';
+
 
 const navigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
@@ -79,7 +80,7 @@ export default function Sidebar({ isOpen, onClose, onUpload, onCreateFolder }) {
         // Fallback to file calculation
       }
 
-      const response = await api.get('files');
+      const response = await api.get('/files');
       
       if (response.data) {
         const files = Array.isArray(response.data.data) 

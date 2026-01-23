@@ -53,7 +53,12 @@ const PUBLIC_AUTH_ENDPOINTS = [
 // =====================================================
 api.interceptors.request.use(
   (config) => {
-    const requestUrl = config.url || '';
+    // Ensure URL always starts with /
+    let requestUrl = config.url || '';
+    if (requestUrl && !requestUrl.startsWith('/')) {
+      requestUrl = '/' + requestUrl;
+      config.url = requestUrl;
+    }
 
     // ⚠️ DEBUG: Log the full URL being constructed
     const fullUrl = config.baseURL + requestUrl;

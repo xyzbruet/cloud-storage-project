@@ -8,6 +8,7 @@ import {
   Folder
 } from 'lucide-react';
 
+import api from '../services/api';
 import { useLayout } from '../components/layout/Layout';
 import FileCard from '../components/common/FileCard';
 import FileListItem from '../components/files/FileListItem';
@@ -66,13 +67,6 @@ export default function MyDrive() {
     handleDownload,
     handleToggleStar,
   } = useFileOperations(fetchData, showToast);
-
-  const getAuthToken = () => {
-    return localStorage.getItem('token') || 
-           localStorage.getItem('authToken') || 
-           sessionStorage.getItem('token') || 
-           sessionStorage.getItem('authToken');
-  };
 
   // ==================== FILTER HOOK ====================
   const {
@@ -153,9 +147,6 @@ export default function MyDrive() {
     };
 
     try {
-      const token = getAuthToken();
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
       let filesData = [];
       let foldersData = [];
 
@@ -167,18 +158,13 @@ export default function MyDrive() {
       debug.filesUrl = filesUrl;
 
       try {
-        const filesResponse = await fetch(filesUrl, { headers });
-        
-        if (filesResponse.ok) {
-          const result = await filesResponse.json();
-          filesData = result.data || result || [];
-          debug.filesCount = filesData.length;
-        } else {
-          const errorText = await filesResponse.text();
-          debug.errors.push(`Files fetch failed: ${filesResponse.status} - ${errorText}`);
-        }
+        const filesResponse = await api.get(filesUrl);
+        const result = filesResponse.data;
+        filesData = result.data || result || [];
+        debug.filesCount = filesData.length;
       } catch (err) {
         debug.errors.push(`Files fetch exception: ${err.message}`);
+        console.error('Files fetch error:', err);
       }
 
       // ================= FETCH FOLDERS =================
@@ -189,34 +175,29 @@ export default function MyDrive() {
       debug.foldersUrl = foldersUrl;
 
       try {
-        const foldersResponse = await fetch(foldersUrl, { headers });
+        const foldersResponse = await api.get(foldersUrl);
+        const result = foldersResponse.data;
         
-        if (foldersResponse.ok) {
-          const result = await foldersResponse.json();
-          
-          const folders = result.data || result.folders || result || [];
-          
-          foldersData = Array.isArray(folders) ? folders : [];
-          debug.foldersCount = foldersData.length;
+        const folders = result.data || result.folders || result || [];
+        
+        foldersData = Array.isArray(folders) ? folders : [];
+        debug.foldersCount = foldersData.length;
 
-          const formattedFolders = foldersData.map(folder => ({
-            id: folder.id || folder._id,
-            name: folder.name,
-            isFolder: true,
-            mimeType: 'folder',
-            createdAt: folder.createdAt,
-            updatedAt: folder.updatedAt,
-            parentId: folder.parentId,
-            ...folder
-          }));
+        const formattedFolders = foldersData.map(folder => ({
+          id: folder.id || folder._id,
+          name: folder.name,
+          isFolder: true,
+          mimeType: 'folder',
+          createdAt: folder.createdAt,
+          updatedAt: folder.updatedAt,
+          parentId: folder.parentId,
+          ...folder
+        }));
 
-          filesData = [...formattedFolders, ...filesData];
-        } else {
-          const errorText = await foldersResponse.text();
-          debug.errors.push(`Folders fetch failed: ${foldersResponse.status} - ${errorText}`);
-        }
+        filesData = [...formattedFolders, ...filesData];
       } catch (err) {
         debug.errors.push(`Folders fetch exception: ${err.message}`);
+        console.error('Folders fetch error:', err);
       }
 
       setFiles(Array.isArray(filesData) ? filesData : []);
@@ -225,6 +206,7 @@ export default function MyDrive() {
       debug.errors.push(`Overall error: ${error.message}`);
       setFiles([]);
       setDebugInfo(debug);
+      console.error('Overall fetch error:', error);
     } finally {
       setLoading(false);
     }
@@ -264,14 +246,11 @@ export default function MyDrive() {
     }
 
     try {
-      const token = getAuthToken();
-      const response = await fetch('/files/upload', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
+      await api.post('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
-
-      if (!response.ok) throw new Error('Upload failed');
       
       showToast('success', 'File uploaded successfully!');
       await fetchData();
@@ -289,36 +268,30 @@ export default function MyDrive() {
   };
 
   // Handle uploads from Sidebar
-  // Update this function to properly handle the type parameter
-const handleSidebarUpload = async (files, uploadType) => {
-  if (!files || files.length === 0) return;
-  
-  setUploading(true);
-  
-  try {
-    if (uploadType === 'folder') {
-      // Handle folder upload
-      await handleFolderUpload(files);
-    } else {
-      // Handle regular file uploads
-      for (const file of files) {
-        await handleUpload(file);
+  const handleSidebarUpload = async (files, uploadType) => {
+    if (!files || files.length === 0) return;
+    
+    setUploading(true);
+    
+    try {
+      if (uploadType === 'folder') {
+        await handleFolderUpload(files);
+      } else {
+        for (const file of files) {
+          await handleUpload(file);
+        }
       }
+    } catch (err) {
+      console.error('Upload failed:', err);
+      showToast('error', 'Upload failed: ' + err.message);
+    } finally {
+      setUploading(false);
     }
-  } catch (err) {
-    console.error('Upload failed:', err);
-    showToast('error', 'Upload failed: ' + err.message);
-  } finally {
-    setUploading(false);
-  }
-};
+  };
 
   // Handle folder uploads with structure
   const handleFolderUpload = async (files) => {
-    const token = getAuthToken();
     const filesArray = Array.from(files);
-    
-    // Group files by their folder structure
     const folderMap = new Map();
     
     for (const file of filesArray) {
@@ -348,54 +321,39 @@ const handleSidebarUpload = async (files, uploadType) => {
         const pathParts = folderPath.split('/');
         let currentParentId = currentFolder;
         
-        // Create nested folders
         for (let i = 0; i < pathParts.length; i++) {
           const folderName = pathParts[i];
           const fullPath = pathParts.slice(0, i + 1).join('/');
           
           if (!createdFolders.has(fullPath)) {
-            const folderResponse = await fetch('/api/folders', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({
-                name: folderName,
-                parentId: currentParentId
-              })
+            const folderResponse = await api.post('/folders', {
+              name: folderName,
+              parentId: currentParentId
             });
             
-            if (folderResponse.ok) {
-              const folderData = await folderResponse.json();
-              const folderId = folderData.data?.id || folderData.id;
-              createdFolders.set(fullPath, folderId);
-              currentParentId = folderId;
-            } else {
-              throw new Error(`Failed to create folder: ${folderName}`);
-            }
+            const folderId = folderResponse.data.data?.id || folderResponse.data.id;
+            createdFolders.set(fullPath, folderId);
+            currentParentId = folderId;
           } else {
             currentParentId = createdFolders.get(fullPath);
           }
         }
         
-        // Upload files to their respective folders
         for (const fileInfo of fileInfos) {
           const formData = new FormData();
           formData.append('file', fileInfo.file);
           formData.append('folderId', currentParentId);
           
-          const uploadResponse = await fetch('/files/upload', {
-            method: 'POST',
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-            body: formData
-          });
-          
-          if (uploadResponse.ok) {
+          try {
+            await api.post('/files/upload', formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
             successCount++;
-          } else {
+          } catch (err) {
             failCount++;
-            console.error(`Failed to upload: ${fileInfo.file.name}`);
+            console.error(`Failed to upload: ${fileInfo.file.name}`, err);
           }
         }
       } catch (err) {
@@ -404,7 +362,6 @@ const handleSidebarUpload = async (files, uploadType) => {
       }
     }
     
-    // Show results
     if (successCount > 0) {
       showToast('success', `Successfully uploaded ${successCount} file(s)${failCount > 0 ? `, ${failCount} failed` : ''}`);
       await fetchData();
@@ -414,7 +371,6 @@ const handleSidebarUpload = async (files, uploadType) => {
     }
   };
 
-  // Handle create folder from Sidebar
   const handleSidebarCreateFolder = () => {
     setShowFolderModal(true);
   };
@@ -426,25 +382,12 @@ const handleSidebarUpload = async (files, uploadType) => {
     }
 
     try {
-      const token = getAuthToken();
       const payload = { name: folderName.trim() };
       if (currentFolder) {
         payload.parentId = currentFolder;
       }
       
-      const response = await fetch('/folders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Folder creation failed: ${errorText}`);
-      }
+      await api.post('/folders', payload);
       
       showToast('success', 'Folder created successfully!');
       setFolderName('');
@@ -496,7 +439,6 @@ const handleSidebarUpload = async (files, uploadType) => {
         onDrop={handleDrop}
         onClick={closeContextMenu}
       >
-        {/* Debug Info Panel */}
         {debugInfo && debugInfo.errors.length > 0 && (
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start gap-2">
@@ -550,7 +492,6 @@ const handleSidebarUpload = async (files, uploadType) => {
           </div>
         )}
 
-        {/* Header Section */}
         <div className="flex justify-between items-start">
           <div className="flex-1">
             <h1 className="text-2xl font-bold text-gray-900">My Drive</h1>
@@ -633,7 +574,6 @@ const handleSidebarUpload = async (files, uploadType) => {
           </div>
         </div>
 
-        {/* Filter Bar with View Toggle */}
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1">
             <FilterBar
@@ -701,7 +641,6 @@ const handleSidebarUpload = async (files, uploadType) => {
           </div>
         )}
 
-        {/* Grid View */}
         {!loading && filteredAndSortedFiles.length > 0 && view === 'grid' && (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3">
             {filteredAndSortedFiles.map((item) => (
@@ -724,7 +663,6 @@ const handleSidebarUpload = async (files, uploadType) => {
           </div>
         )}
 
-        {/* List View */}
         {!loading && filteredAndSortedFiles.length > 0 && view === 'list' && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="flex items-center px-6 py-3 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-700 uppercase tracking-wider">
@@ -765,7 +703,6 @@ const handleSidebarUpload = async (files, uploadType) => {
         )}
       </div>
 
-      {/* Create Folder Modal */}
       {showFolderModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full">
@@ -827,7 +764,6 @@ const handleSidebarUpload = async (files, uploadType) => {
         </div>
       )}
 
-      {/* Share Modal */}
       {shareFile && (
         <ShareModal
           file={shareFile}
@@ -836,6 +772,7 @@ const handleSidebarUpload = async (files, uploadType) => {
         />
       )}
 
+     
       {/* File Preview Modal */}
       {previewFile && (
         <FilePreviewModal
