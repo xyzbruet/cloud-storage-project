@@ -1,5 +1,6 @@
 import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
+import api from '../../services/api'; // Import your API client
 
 // PermissionControl Component
 function PermissionControl({ 
@@ -101,7 +102,7 @@ function AlertMessage({ type, text, onDismiss }) {
   );
 }
 
-export default function ShareModal({ file, onClose, onShared, authToken: providedToken }) {
+export default function ShareModal({ file, onClose, onShared }) {
   const [email, setEmail] = useState('');
   const [permission, setPermission] = useState('view');
   const [loading, setLoading] = useState(false);
@@ -120,24 +121,6 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
   const isFolder = file?.isFolder || file?.mimeType === 'folder';
   const itemType = isFolder ? 'folders' : 'files';
   const itemLabel = isFolder ? 'folder' : 'file';
-
-  // Get token from localStorage or props
-  const getToken = useCallback(() => {
-    if (providedToken) return providedToken;
-    
-    try {
-      const localToken = typeof window !== 'undefined' && window.localStorage 
-        ? window.localStorage.getItem('token')
-        : null;
-      if (localToken) return localToken;
-    } catch (e) {
-      console.error('Error accessing token:', e);
-    }
-    
-    return null;
-  }, [providedToken]);
-
-  const authToken = getToken();
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -167,43 +150,32 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
 
   const fetchSharedUsers = useCallback(async () => {
     try {
-      const headers = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
+      const response = await api.get(`/${itemType}/${file.id}/shares`);
       
-      const response = await fetch(`/api/${itemType}/${file.id}/shares`, { headers });
-      
-      if (response.ok) {
-        const text = await response.text();
-        const data = text ? JSON.parse(text) : [];
-        const shares = data.data || data || [];
-        
-        setSharedUsers(shares);
-      } else if (response.status === 403) {
-        showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
-      } else if (response.status === 401) {
-        showMessage('error', 'Authentication required. Please log in again.');
-      }
+      const shares = response.data || [];
+      setSharedUsers(shares);
     } catch (err) {
       console.error('Failed to fetch shared users:', err);
+      if (err.response?.status === 403) {
+        showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
+      } else if (err.response?.status === 401) {
+        showMessage('error', 'Authentication required. Please log in again.');
+      }
     }
-  }, [file.id, authToken, itemType, itemLabel]);
+  }, [file.id, itemType, itemLabel]);
 
   const checkExistingLink = useCallback(async () => {
     try {
-      const headers = authToken ? { 'Authorization': `Bearer ${authToken}` } : {};
-      const response = await fetch(`/api/${itemType}/${file.id}/share-link`, { headers });
+      const response = await api.get(`/${itemType}/${file.id}/share-link`);
       
-      if (response.ok) {
-        const text = await response.text();
-        const data = text ? JSON.parse(text) : {};
-        if (data.data?.shareUrl) {
-          setShareLink(data.data.shareUrl);
-          setLinkPermission(data.data.permission || 'view');
-        }
+      if (response.data?.shareUrl) {
+        setShareLink(response.data.shareUrl);
+        setLinkPermission(response.data.permission || 'view');
       }
     } catch (err) {
       console.log('No existing share link');
     }
-  }, [file.id, authToken, itemType]);
+  }, [file.id, itemType]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -260,41 +232,12 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
     try {
       setLoading(true);
 
-      const response = await fetch(`/api/${itemType}/${file.id}/share`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-        },
-        body: JSON.stringify({
-          email: validation.email,
-          permission,
-          sendEmail,
-          message: `You have been given ${permission} access to "${file.name}"`
-        })
+      await api.post(`/${itemType}/${file.id}/share`, {
+        email: validation.email,
+        permission,
+        sendEmail,
+        message: `You have been given ${permission} access to "${file.name}"`
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMessage = `Failed to share ${itemLabel}`;
-
-        try {
-          const error = text ? JSON.parse(text) : {};
-          errorMessage = error.message || errorMessage;
-        } catch (e) {
-          if (response.status === 403) {
-            errorMessage = 'Permission denied. Please check your authentication.';
-          } else if (response.status === 401) {
-            errorMessage = 'Unauthorized. Please log in again.';
-          } else if (response.status === 404) {
-            errorMessage = `${isFolder ? 'Folder' : 'File'} not found.`;
-          } else {
-            errorMessage = `Server error (${response.status}). Please try again.`;
-          }
-        }
-
-        throw new Error(errorMessage);
-      }
 
       const savedEmail = validation.email;
       setEmail('');
@@ -311,51 +254,51 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
 
     } catch (err) {
       console.error(`Exception while sharing ${itemLabel}:`, err);
-      showMessage('error', err.message || `Failed to share ${itemLabel}`);
+      
+      let errorMessage = `Failed to share ${itemLabel}`;
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Permission denied. Please check your authentication.';
+      } else if (err.response?.status === 401) {
+        errorMessage = 'Unauthorized. Please log in again.';
+      } else if (err.response?.status === 404) {
+        errorMessage = `${isFolder ? 'Folder' : 'File'} not found.`;
+      } else if (err.response?.status) {
+        errorMessage = `Server error (${err.response.status}). Please try again.`;
+      }
+      
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }
   };
 
   const generateShareLink = async () => {
-  try {
-    setLoading(true);
-    
-    const response = await fetch(`/api/${itemType}/${file.id}/share-link`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-      },
-      body: JSON.stringify({
+    try {
+      setLoading(true);
+      
+      const response = await api.post(`/${itemType}/${file.id}/share-link`, {
         permission: linkPermission,
         expiresIn: 30
-      })
-    });
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to generate share link');
+      console.log('✅ Share link response:', response);
+      
+      const shareUrl = response.data?.shareUrl || response.shareUrl;
+      setShareLink(shareUrl);
+      
+      showMessage('success', 'Share link generated successfully!');
+      
+      if (onShared) onShared();
+    } catch (err) {
+      console.error('Failed to generate link:', err);
+      showMessage('error', err.response?.data?.message || 'Failed to generate share link');
+    } finally {
+      setLoading(false);
     }
-
-    const data = await response.json();
-    console.log('✅ Share link response:', data);
-    
-    // ✅ The backend now returns a full URL like:
-    // http://localhost:3000/s/abc123-xyz789
-    const shareUrl = data.data?.shareUrl || data.shareUrl;
-    setShareLink(shareUrl);
-    
-    showMessage('success', 'Share link generated successfully!');
-    
-    if (onShared) onShared();
-  } catch (err) {
-    console.error('Failed to generate link:', err);
-    showMessage('error', err.message || 'Failed to generate share link');
-  } finally {
-    setLoading(false);
-  }
-};
-
+  };
 
   const updateUserPermission = async (userId, newPermission) => {
     const userShare = sharedUsers.find(u => u.id === userId);
@@ -372,32 +315,9 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
     const shareId = userShare.shareId || userShare.id;
 
     try {
-      const response = await fetch(`/api/${itemType}/${file.id}/shares/${shareId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-        },
-        body: JSON.stringify({ permission: newPermission })
+      await api.patch(`/${itemType}/${file.id}/shares/${shareId}`, {
+        permission: newPermission
       });
-
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMessage = 'Failed to update permission';
-        
-        try {
-          const error = text ? JSON.parse(text) : {};
-          errorMessage = error.message || errorMessage;
-        } catch (e) {
-          if (response.status === 403) {
-            errorMessage = 'Permission denied.';
-          } else if (response.status === 400) {
-            errorMessage = 'Invalid request. This share may no longer exist.';
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
 
       showMessage('success', 'Permission updated successfully');
       
@@ -410,7 +330,17 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
       if (onShared) onShared();
     } catch (err) {
       console.error('Failed to update permission:', err);
-      showMessage('error', err.message || 'Failed to update permission');
+      
+      let errorMessage = 'Failed to update permission';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Permission denied.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid request. This share may no longer exist.';
+      }
+      
+      showMessage('error', errorMessage);
       await fetchSharedUsers();
     }
   };
@@ -429,28 +359,7 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
     const shareId = userShare.shareId || userShare.id;
 
     try {
-      const response = await fetch(`/api/${itemType}/${file.id}/shares/${shareId}`, {
-        method: 'DELETE',
-        headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMessage = 'Failed to remove access';
-        
-        try {
-          const error = text ? JSON.parse(text) : {};
-          errorMessage = error.message || errorMessage;
-        } catch (e) {
-          if (response.status === 403) {
-            errorMessage = 'Permission denied.';
-          } else if (response.status === 400) {
-            errorMessage = 'Invalid request. This share may no longer exist.';
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
+      await api.delete(`/${itemType}/${file.id}/shares/${shareId}`);
 
       showMessage('success', `Access removed for ${userEmail}`);
       
@@ -459,7 +368,17 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
       if (onShared) onShared();
     } catch (err) {
       console.error('Failed to remove access:', err);
-      showMessage('error', err.message || 'Failed to remove access');
+      
+      let errorMessage = 'Failed to remove access';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Permission denied.';
+      } else if (err.response?.status === 400) {
+        errorMessage = 'Invalid request. This share may no longer exist.';
+      }
+      
+      showMessage('error', errorMessage);
       await fetchSharedUsers();
     }
   };
@@ -472,26 +391,7 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
     try {
       setLoading(true);
       
-      const response = await fetch(`/api/${itemType}/${file.id}/share-link`, {
-        method: 'DELETE',
-        headers: authToken ? { 'Authorization': `Bearer ${authToken}` } : {}
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        let errorMessage = 'Failed to revoke link';
-        
-        try {
-          const error = text ? JSON.parse(text) : {};
-          errorMessage = error.message || errorMessage;
-        } catch (e) {
-          if (response.status === 403) {
-            errorMessage = 'Permission denied.';
-          }
-        }
-        
-        throw new Error(errorMessage);
-      }
+      await api.delete(`/${itemType}/${file.id}/share-link`);
 
       setShareLink('');
       showMessage('success', 'Share link revoked successfully');
@@ -499,7 +399,15 @@ export default function ShareModal({ file, onClose, onShared, authToken: provide
       if (onShared) onShared();
     } catch (err) {
       console.error('Failed to revoke link:', err);
-      showMessage('error', err.message || 'Failed to revoke link');
+      
+      let errorMessage = 'Failed to revoke link';
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.status === 403) {
+        errorMessage = 'Permission denied.';
+      }
+      
+      showMessage('error', errorMessage);
     } finally {
       setLoading(false);
     }

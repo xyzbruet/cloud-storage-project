@@ -61,42 +61,46 @@ export default function Home() {
         }
       } catch (userErr) {
         console.error('Failed to fetch user storage:', userErr);
+      
       }
+      // Replace lines 77-82 in Home.jsx
+const [filesRes, foldersRes, starredRes, sharedRes] = await Promise.all([
+  api.get('/files').catch(() => ({ data: [] })),
+  api.get('/folders').catch(() => ({ data: [] })),
+  api.get('/files/starred').catch(() => ({ data: [] })),
+  api.get('/files/shared-with-me').catch(() => ({ data: [] })),
+]);
 
-      // Fetch all data
-      const [filesRes, foldersRes, starredRes, sharedRes] = await Promise.all([
-        fetch('/api/files', { headers }).catch(() => null),
-        fetch('/api/folders', { headers }).catch(() => null),
-        fetch('/api/files/starred', { headers }).catch(() => null),
-        fetch('/api/files/shared-with-me', { headers }).catch(() => null),
-      ]);
+// And update the response handling (lines 88-110)
+let allFiles = [];
+let allFolders = [];
+let starredCount = 0;
+let sharedCount = 0;
 
-      let allFiles = [];
-      let allFolders = [];
-      let starredCount = 0;
-      let sharedCount = 0;
+// Files
+const filesData = filesRes?.data;
+allFiles = Array.isArray(filesData?.data) ? filesData.data : 
+           Array.isArray(filesData) ? filesData : [];
 
-      if (filesRes?.ok) {
-        const data = await filesRes.json();
-        allFiles = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-      }
+// Folders
+const foldersData = foldersRes?.data;
+allFolders = Array.isArray(foldersData?.data) ? foldersData.data : 
+             Array.isArray(foldersData) ? foldersData : [];
+allFolders = allFolders.map(f => ({ ...f, isFolder: true, mimeType: 'folder' }));
 
-      if (foldersRes?.ok) {
-        const data = await foldersRes.json();
-        allFolders = Array.isArray(data.data) ? data.data : Array.isArray(data) ? data : [];
-        allFolders = allFolders.map(f => ({ ...f, isFolder: true, mimeType: 'folder' }));
-      }
+// Starred
+const starredData = starredRes?.data;
+starredCount = Array.isArray(starredData?.data) ? starredData.data.length : 
+               Array.isArray(starredData) ? starredData.length : 0;
 
-      if (starredRes?.ok) {
-        const data = await starredRes.json();
-        starredCount = Array.isArray(data.data) ? data.data.length : 0;
-      }
+// Shared
+const sharedData = sharedRes?.data;
+sharedCount = Array.isArray(sharedData?.data) ? sharedData.data.length : 
+              Array.isArray(sharedData) ? sharedData.length : 0;
 
-      if (sharedRes?.ok) {
-        const data = await sharedRes.json();
-        sharedCount = Array.isArray(data.data) ? data.data.length : 0;
-      }
 
+
+     
       // Calculate storage - use user data if available, otherwise calculate from files
       let calculatedStorageUsed = userStorageUsed;
       if (userStorageUsed === 0) {

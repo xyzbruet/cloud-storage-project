@@ -44,7 +44,7 @@ export default function Trash() {
     setLoading(true);
     try {
       const [filesRes, foldersRes] = await Promise.all([
-        axios.get("/api/files/trash"),
+        api.get("files/trash"),
         folderService.getTrashFolders()
       ]);
 
@@ -89,7 +89,7 @@ export default function Trash() {
       if (currentFiles.length > 0) {
         await Promise.allSettled(
           currentFiles.map(file => 
-            axios.delete(`/api/files/${file.id}/permanent`)
+            api.delete(`/files/${file.id}/permanent`)
               .catch(err => {
                 console.error(`Failed to delete file ${file.id}:`, err);
                 return null;

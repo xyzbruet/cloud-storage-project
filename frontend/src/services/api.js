@@ -10,10 +10,8 @@ const normalizedBaseURL = API_BASE_URL.replace(/\/$/, '');
 
 // ⚠️ CRITICAL DEBUG LOGS - Check these in console
 console.log('🔍 Raw VITE_API_URL:', import.meta.env.VITE_API_URL);
-console.log('🔍 All env vars:', import.meta.env);
 console.log('🔗 Final API Base URL:', normalizedBaseURL);
 console.log('🌍 Environment Mode:', import.meta.env.MODE);
-console.log('🌍 Is DEV:', import.meta.env.DEV);
 
 // Validation - Critical for production
 if (!normalizedBaseURL) {
@@ -40,11 +38,14 @@ console.log('🔧 Axios baseURL configured as:', api.defaults.baseURL);
 // PUBLIC AUTH ENDPOINTS (No token required)
 // =====================================================
 const PUBLIC_AUTH_ENDPOINTS = [
-  '/auth/send-login-otp',
-  '/auth/verify-login-otp',
-  '/auth/send-register-otp',
-  '/auth/verify-register-otp',
-  '/auth/google-login',
+  '/auth/login',
+  '/auth/register',
+  // Future OTP/Google endpoints
+  // '/auth/send-login-otp',
+  // '/auth/verify-login-otp',
+  // '/auth/send-register-otp',
+  // '/auth/verify-register-otp',
+  // '/auth/google-login',
 ];
 
 // =====================================================

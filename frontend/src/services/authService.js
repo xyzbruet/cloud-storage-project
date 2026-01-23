@@ -1,31 +1,19 @@
 import api from './api';
 
 // =====================================================
-// AUTH SERVICE
+// AUTH SERVICE - Simple Password Auth (OTP/Google for future)
 // =====================================================
 export const authService = {
 
-  // ==================== REGISTRATION WITH OTP ====================
+  // ==================== SIMPLE REGISTRATION ====================
 
-  sendRegisterOTP: async (data) => {
+  register: async (data) => {
     try {
-      const response = await api.post('/auth/send-register-otp', data);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error;
-    }
-  },
-
-  verifyRegisterOTP: async (data) => {
-    try {
-      const response = await api.post('/auth/verify-register-otp', data);
+      const response = await api.post('/auth/register', data);
 
       if (response.data?.data?.token) {
         localStorage.setItem('token', response.data.data.token);
-        localStorage.setItem(
-          'user',
-          JSON.stringify(response.data.data.user)
-        );
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
       }
 
       return response.data;
@@ -34,27 +22,15 @@ export const authService = {
     }
   },
 
-  // ==================== LOGIN WITH OTP ====================
+  // ==================== SIMPLE LOGIN ====================
 
-  sendLoginOTP: async (data) => {
+  login: async (data) => {
     try {
-      const response = await api.post('/auth/send-login-otp', data);
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error;
-    }
-  },
-
-  verifyLoginOTP: async (data) => {
-    try {
-      const response = await api.post('/auth/verify-login-otp', data);
+      const response = await api.post('/auth/login', data);
 
       if (response.data?.data?.token) {
         localStorage.setItem('token', response.data.data.token);
-        localStorage.setItem(
-          'user',
-          JSON.stringify(response.data.data.user)
-        );
+        localStorage.setItem('user', JSON.stringify(response.data.data.user));
       }
 
       return response.data;
@@ -63,45 +39,98 @@ export const authService = {
     }
   },
 
-  // ==================== GOOGLE LOGIN ====================
+  // ==================== FUTURE: REGISTRATION WITH OTP ====================
 
-googleLogin: async (credential) => {
-  try {
-    const response = await api.post('/auth/google-login', {
-      credential,
-    });
+  // sendRegisterOTP: async (data) => {
+  //   try {
+  //     const response = await api.post('/auth/send-register-otp', data);
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error.response?.data || error;
+  //   }
+  // },
 
-    console.log('✅ Full Google login response:', response);
-    console.log('✅ Response data:', response.data);
+  // verifyRegisterOTP: async (data) => {
+  //   try {
+  //     const response = await api.post('/auth/verify-register-otp', data);
 
-    const responseData = response.data;
-    const token = responseData.data?.token || responseData.token;
-    const user = responseData.data?.user || responseData.user;
+  //     if (response.data?.data?.token) {
+  //       localStorage.setItem('token', response.data.data.token);
+  //       localStorage.setItem('user', JSON.stringify(response.data.data.user));
+  //     }
 
-    console.log('🔑 Extracted token:', token ? token.substring(0, 20) + '...' : 'NOT FOUND');
-    console.log('👤 Extracted user:', user);
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error.response?.data || error;
+  //   }
+  // },
 
-    if (token && user) {
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-      console.log('✅ Token and user saved to localStorage');
-      
-      // 🔥 NEW: Force page reload to dashboard after successful login
-      console.log('🚀 Redirecting to dashboard...');
-      setTimeout(() => {
-        window.location.href = '/dashboard';
-      }, 500);
-      
-      return responseData;
-    } else {
-      console.error('❌ Token or user missing in response');
-      throw new Error('Invalid response from server - missing token or user');
-    }
-  } catch (error) {
-    console.error('❌ Google login error:', error);
-    throw error.response?.data || error;
-  }
-},
+  // ==================== FUTURE: LOGIN WITH OTP ====================
+
+  // sendLoginOTP: async (data) => {
+  //   try {
+  //     const response = await api.post('/auth/send-login-otp', data);
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error.response?.data || error;
+  //   }
+  // },
+
+  // verifyLoginOTP: async (data) => {
+  //   try {
+  //     const response = await api.post('/auth/verify-login-otp', data);
+
+  //     if (response.data?.data?.token) {
+  //       localStorage.setItem('token', response.data.data.token);
+  //       localStorage.setItem('user', JSON.stringify(response.data.data.user));
+  //     }
+
+  //     return response.data;
+  //   } catch (error) {
+  //     throw error.response?.data || error;
+  //   }
+  // },
+
+  // ==================== FUTURE: GOOGLE LOGIN ====================
+
+  // googleLogin: async (credential) => {
+  //   try {
+  //     const response = await api.post('/auth/google-login', {
+  //       credential,
+  //     });
+
+  //     console.log('✅ Full Google login response:', response);
+  //     console.log('✅ Response data:', response.data);
+
+  //     const responseData = response.data;
+  //     const token = responseData.data?.token || responseData.token;
+  //     const user = responseData.data?.user || responseData.user;
+
+  //     console.log('🔑 Extracted token:', token ? token.substring(0, 20) + '...' : 'NOT FOUND');
+  //     console.log('👤 Extracted user:', user);
+
+  //     if (token && user) {
+  //       localStorage.setItem('token', token);
+  //       localStorage.setItem('user', JSON.stringify(user));
+  //       console.log('✅ Token and user saved to localStorage');
+        
+  //       // Force page reload to dashboard after successful login
+  //       console.log('🚀 Redirecting to dashboard...');
+  //       setTimeout(() => {
+  //         window.location.href = '/dashboard';
+  //       }, 500);
+        
+  //       return responseData;
+  //     } else {
+  //       console.error('❌ Token or user missing in response');
+  //       throw new Error('Invalid response from server - missing token or user');
+  //     }
+  //   } catch (error) {
+  //     console.error('❌ Google login error:', error);
+  //     throw error.response?.data || error;
+  //   }
+  // },
+
   // ==================== LOGOUT ====================
 
   logout: () => {
@@ -126,13 +155,9 @@ googleLogin: async (credential) => {
       const formData = new FormData();
       formData.append('profilePicture', file);
 
-      const response = await api.post(
-        '/user/profile-picture',
-        formData,
-        {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        }
-      );
+      const response = await api.post('/user/profile-picture', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
 
       return response.data;
     } catch (error) {

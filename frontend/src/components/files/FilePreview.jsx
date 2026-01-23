@@ -4,7 +4,7 @@ import api from '../../services/api';
 import { useToast } from '../Toast';
 
 export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete }) {
-  const { toast } = useToast(); // FIXED: Changed from const toast = useToast()
+  const { toast } = useToast();
   const [previewUrl, setPreviewUrl] = useState(null);
   const [textContent, setTextContent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -37,10 +37,12 @@ export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete
       setError(null);
       setTextContent(null);
 
-      const response = await axios.get(`/api/files/${file.id}/download`, {
+      // Use api service instead of axios
+      const response = await api.get(`/files/${file.id}/download`, {
         responseType: 'blob'
       });
       
+      // response.data is already the blob from axios
       const blob = new Blob([response.data], { type: file.mimeType || response.data.type });
       
       if (isText) {
@@ -52,7 +54,7 @@ export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete
       }
     } catch (err) {
       console.error('Failed to load preview:', err);
-      setError("Failed to load preview: " + (err.response?.data?.message || err.message));
+      setError(err.response?.data?.message || err.message || "Failed to load preview");
     } finally {
       setLoading(false);
     }
@@ -60,7 +62,7 @@ export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete
 
   const handleDownload = async () => {
     try {
-      const response = await axios.get(`/api/files/${file.id}/download`, {
+      const response = await api.get(`/files/${file.id}/download`, {
         responseType: 'blob'
       });
       
@@ -72,10 +74,10 @@ export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      toast('Download started!', 'success'); // FIXED: Changed from toast.success
+      toast('Download started!', 'success');
     } catch (err) {
       console.error('Download failed:', err);
-      toast('Download failed', 'error'); // FIXED: Changed from toast.error
+      toast('Download failed: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 
@@ -85,15 +87,15 @@ export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete
     }
     
     try {
-      await axios.delete(`/api/files/${file.id}`);
+      await api.delete(`/files/${file.id}`);
+      toast('File deleted successfully', 'success');
       if (onDelete) {
         onDelete(file.id);
       }
       onClose();
-      toast('File deleted', 'success'); // FIXED: Changed from toast.success
     } catch (err) {
       console.error('Delete failed:', err);
-      toast('Delete failed', 'error'); // FIXED: Changed from toast.error
+      toast('Delete failed: ' + (err.response?.data?.message || err.message), 'error');
     }
   };
 
@@ -103,7 +105,7 @@ export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete
         await modalRef.current.requestFullscreen();
       } catch (err) {
         console.error('Failed to enter fullscreen:', err);
-        toast('Fullscreen not supported', 'error'); // FIXED: Changed from toast.error
+        toast('Fullscreen not supported', 'error');
       }
     } else {
       try {
@@ -122,7 +124,9 @@ export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete
                  file.mimeType === 'application/json' ||
                  file.name?.endsWith('.txt') ||
                  file.name?.endsWith('.json') ||
-                 file.name?.endsWith('.xml');
+                 file.name?.endsWith('.xml') ||
+                 file.name?.endsWith('.md') ||
+                 file.name?.endsWith('.csv');
 
   return (
     <div 
