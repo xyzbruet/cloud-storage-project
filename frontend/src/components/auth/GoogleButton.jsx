@@ -1,4 +1,3 @@
-// src/components/auth/GoogleButton.jsx - FINAL FIXED VERSION
 import { GoogleLogin } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
 import { authService } from "../../services/authService";
@@ -7,48 +6,81 @@ import { useToast } from "../Toast";
 
 export default function GoogleButton() {
   const navigate = useNavigate();
-  const { setAuth } = useAuthStore();
-  const toast = useToast(); // ✅ Don't destructure - use it directly
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const toast = useToast();
 
   const handleSuccess = async (credentialResponse) => {
     try {
-      console.log('Google credential received');
+      console.log('🔵 Google credential received, starting login...');
       
+      // Call backend
       const response = await authService.googleLogin(
         credentialResponse.credential
       );
 
-      console.log('Backend response:', response);
+      console.log('✅ Backend login successful');
 
-      // ✅ Robust handling for both response structures
-      const data = response.data || response;
-      const token = data.token;
-      const user = data.user || {
-        email: data.email,
-        fullName: data.fullName,
-        storageUsed: data.storageUsed,
-        storageLimit: data.storageLimit,
-      };
-      
-      if (token) {
-        // ✅ Update Zustand store with setAuth
+      // authService already saved to localStorage, so read from there
+      const token = localStorage.getItem('token');
+      const userStr = localStorage.getItem('user');
+      const user = userStr ? JSON.parse(userStr) : null;
+
+      console.log('🔑 Token from localStorage:', token ? 'Found ✅' : 'Missing ❌');
+      console.log('👤 User from localStorage:', user ? 'Found ✅' : 'Missing ❌');
+
+      if (token && user) {
+        console.log('🔄 Updating Zustand store with setAuth...');
+        
+        // Update Zustand store
         setAuth(token, user);
         
-        toast.success('Google sign-in successful!'); // ✅ Fixed
-        navigate("/dashboard", { replace: true });
+        // Verify store was updated
+        const storeState = useAuthStore.getState();
+        console.log('📊 Zustand store after setAuth:', {
+          isAuthenticated: storeState.isAuthenticated,
+          hasUser: !!storeState.user,
+          hasToken: !!storeState.token
+        });
+        
+        // Show success message
+        if (toast?.success) {
+          toast.success(`Welcome back, ${user.fullName}!`);
+        } else {
+          console.log('✅ Login successful! Welcome back:', user.fullName);
+        }
+        
+        // Navigate after ensuring state is updated
+        console.log('🚀 Navigating to dashboard in 300ms...');
+        setTimeout(() => {
+          console.log('⏭️ Executing navigation now...');
+          navigate("/dashboard", { replace: true });
+        }, 300);
       } else {
-        throw new Error('No token received from server');
+        console.error('❌ Token or user missing after authService.googleLogin');
+        throw new Error('Authentication data missing after login');
       }
     } catch (err) {
-      console.error("Google login error:", err);
+      console.error("❌ Google login error:", err);
       const message = err.response?.data?.message || err.message || 'Google login failed';
-      toast.error(message); // ✅ Fixed
+      
+      if (toast?.error) {
+        toast.error(message);
+      } else {
+        console.error('Error message:', message);
+        alert(message);
+      }
     }
   };
 
   const handleError = () => {
-    console.error("Google Login Failed");
-    toast.error('Google sign-in failed'); // ✅ Fixed
+    console.error("❌ Google Login Failed");
+    
+    if (toast?.error) {
+      toast.error('Google sign-in failed. Please try again.');
+    } else {
+      console.error('Google sign-in failed');
+      alert('Google sign-in failed. Please try again.');
+    }
   };
 
   return (

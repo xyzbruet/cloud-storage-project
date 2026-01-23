@@ -11,7 +11,7 @@ import MoveModal from '../components/files/MoveModal';
 import FileCard from '../components/common/FileCard';
 import useFileOperations from '../hooks/useFileOperations';
 import { useViewPreference } from '../hooks/useViewPreference';
-import axios from '../utils/axios';
+import api from '../services/api';
 
 export default function Home() {
   const [view, setView] = useViewPreference('home');
@@ -51,7 +51,7 @@ export default function Home() {
       let userStorageLimit = 5 * 1024 * 1024 * 1024; // Default 5GB
 
       try {
-        const userResponse = await axios.get('/auth/me');
+        const userResponse = await api.get('/auth/me');
         if (userResponse.data) {
           const userData = userResponse.data.user || userResponse.data;
           if (userData.storageUsed !== undefined && userData.storageLimit !== undefined) {

@@ -65,51 +65,43 @@ export const authService = {
 
   // ==================== GOOGLE LOGIN ====================
 
-  googleLogin: async (credential) => {
-    try {
-      const response = await api.post('/auth/google-login', {
-        credential,
-      });
+googleLogin: async (credential) => {
+  try {
+    const response = await api.post('/auth/google-login', {
+      credential,
+    });
 
-      if (response.data?.data?.token) {
-        localStorage.setItem('token', response.data.data.token);
-        localStorage.setItem(
-          'user',
-          JSON.stringify(response.data.data.user)
-        );
-      }
+    console.log('✅ Full Google login response:', response);
+    console.log('✅ Response data:', response.data);
 
-      return response.data;
-    } catch (error) {
-      throw error.response?.data || error;
+    const responseData = response.data;
+    const token = responseData.data?.token || responseData.token;
+    const user = responseData.data?.user || responseData.user;
+
+    console.log('🔑 Extracted token:', token ? token.substring(0, 20) + '...' : 'NOT FOUND');
+    console.log('👤 Extracted user:', user);
+
+    if (token && user) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      console.log('✅ Token and user saved to localStorage');
+      
+      // 🔥 NEW: Force page reload to dashboard after successful login
+      console.log('🚀 Redirecting to dashboard...');
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 500);
+      
+      return responseData;
+    } else {
+      console.error('❌ Token or user missing in response');
+      throw new Error('Invalid response from server - missing token or user');
     }
-  },
-
-  // ==================== CURRENT USER ====================
-
-  getCurrentUser: async () => {
-    try {
-      const response = await api.get('/auth/me');
-
-      if (response.data?.data?.user) {
-        localStorage.setItem(
-          'user',
-          JSON.stringify(response.data.data.user)
-        );
-      }
-
-      return response.data;
-    } catch (error) {
-      if (
-        error.response?.status === 401 ||
-        error.response?.status === 400
-      ) {
-        return null;
-      }
-      throw error.response?.data || error;
-    }
-  },
-
+  } catch (error) {
+    console.error('❌ Google login error:', error);
+    throw error.response?.data || error;
+  }
+},
   // ==================== LOGOUT ====================
 
   logout: () => {

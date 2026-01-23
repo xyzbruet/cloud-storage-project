@@ -1,7 +1,7 @@
 import { Trash2, RotateCcw, Eye, X, Filter, Folder, Clock, MoreVertical } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useToast, useConfirm } from '../components/Toast';
-import axios from '../utils/axios';
+import api from '../services/api';
 import folderService from '../services/folderService';
 import FileCard from '../components/common/FileCard';
 import ViewToggle from '../components/files/ViewToggle';

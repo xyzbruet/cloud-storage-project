@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
-import axios from '../../utils/axios';
+import api from '../../services/api';
 
 import UploadMenu from '../common/UploadMenu';'../components/common/UploadMenu';
 
@@ -63,7 +63,7 @@ export default function Sidebar({ isOpen, onClose, onUpload, onCreateFolder }) {
 
     try {
       try {
-        const userResponse = await axios.get('/api/auth/me');
+        const userResponse = await api.get('/auth/me');
         if (userResponse.data) {
           const userData = userResponse.data.user || userResponse.data;
           if (userData.storageUsed !== undefined && userData.storageLimit !== undefined) {
@@ -79,7 +79,7 @@ export default function Sidebar({ isOpen, onClose, onUpload, onCreateFolder }) {
         // Fallback to file calculation
       }
 
-      const response = await axios.get('/api/files');
+      const response = await api.get('files');
       
       if (response.data) {
         const files = Array.isArray(response.data.data) 

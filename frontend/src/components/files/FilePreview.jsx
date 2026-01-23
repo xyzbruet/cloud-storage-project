@@ -1,6 +1,6 @@
 import { X, Download, Share2, Star, Trash2, Maximize, Minimize } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import axios from '../../utils/axios';
+import api from '../../services/api';
 import { useToast } from '../Toast';
 
 export default function FilePreviewModal({ file, onClose, onToggleStar, onDelete }) {

@@ -5,9 +5,9 @@ export const dashboardService = {
     try {
       // Fetch all required data
       const [filesRes, foldersRes, starredRes] = await Promise.all([
-        api.get('/files'),
-        api.get('/folders'),
-        api.get('/files/starred'),
+        get('/files'),
+        get('/folders'),
+        get('/files/starred'),
       ])
 
       const files = filesRes.data.data || []

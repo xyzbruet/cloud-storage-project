@@ -1,6 +1,6 @@
 import { Star, Download, Eye, Trash2, MoreVertical, Share2, Filter, Folder, Clock } from 'lucide-react';
 import { useEffect, useState, useCallback } from 'react';
-import axios from '../utils/axios';
+import api from '../services/api';
 import FilePreviewModal from '../components/files/FilePreview';
 import ShareModal from '../components/share/ShareModal';
 import ViewToggle from '../components/files/ViewToggle';

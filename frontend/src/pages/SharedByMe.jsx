@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Users, Link2, Trash2, FileText, HardDrive, Mail, Edit, Eye, X, ChevronRight, Home, FolderOpen, Upload, Filter as FilterIcon, Folder, MoreVertical, Clock, CheckCircle, Info, AlertCircle } from 'lucide-react';
-import axios from '../utils/axios';
+import api from '../services/api';
 import FileCard from '../components/common/FileCard';
 import ViewToggle from '../components/files/ViewToggle';
 import { FilterBar } from '../components/common/FilterBar';
