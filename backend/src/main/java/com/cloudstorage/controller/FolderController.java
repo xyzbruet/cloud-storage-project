@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;  // ADD THIS
 
 import com.cloudstorage.model.User;
 import com.cloudstorage.service.AuthService;
@@ -36,6 +37,7 @@ public class FolderController {
 
     // ================= ROOT FOLDERS =================
     @GetMapping
+    @Transactional(readOnly = true)  // ADD THIS - FIX FOR THE ERROR YOU'RE SEEING
     public ResponseEntity<ApiResponse<List<FolderResponse>>> getRootFolders() {
         return ResponseEntity.ok(
                 ApiResponse.success(folderService.getRootFolders()
@@ -47,6 +49,7 @@ public class FolderController {
 
     // ================= SUB FOLDERS =================
     @GetMapping("/{parentId}/subfolders")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<FolderResponse>>> getSubFolders(
             @PathVariable Long parentId
     ) {
@@ -60,6 +63,7 @@ public class FolderController {
 
     // ================= CREATE =================
     @PostMapping
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<FolderResponse>> createFolder(
             @Valid @RequestBody CreateFolderRequest request
     ) {
@@ -70,6 +74,7 @@ public class FolderController {
 
     // ================= RENAME =================
     @PutMapping("/{id}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<FolderResponse>> renameFolder(
             @PathVariable Long id,
             @Valid @RequestBody CreateFolderRequest request
@@ -81,6 +86,7 @@ public class FolderController {
 
     // ================= UPDATE (RENAME OR MOVE) =================
     @PatchMapping("/{id}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<FolderResponse>> updateFolder(
             @PathVariable Long id,
             @RequestBody Map<String, Object> updates) {
@@ -117,6 +123,7 @@ public class FolderController {
 
     // ================= DELETE (Move to Trash) =================
     @DeleteMapping("/{id}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> deleteFolder(@PathVariable Long id) {
         folderService.moveToTrash(id);
         return ResponseEntity.ok(ApiResponse.success("Folder moved to trash", null));
@@ -124,6 +131,7 @@ public class FolderController {
 
     // ================= RESTORE FROM TRASH =================
     @PostMapping("/{id}/restore")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<FolderResponse>> restoreFolder(@PathVariable Long id) {
         return ResponseEntity.ok(
                 ApiResponse.success(folderService.restoreFromTrash(id))
@@ -132,6 +140,7 @@ public class FolderController {
 
     // ================= GET TRASH FOLDERS =================
     @GetMapping("/trash")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<FolderResponse>>> getTrashFolders() {
         return ResponseEntity.ok(
                 ApiResponse.success(folderService.getTrashFolders()
@@ -143,6 +152,7 @@ public class FolderController {
 
     // ================= PERMANENT DELETE =================
     @DeleteMapping("/{id}/permanent")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> permanentlyDeleteFolder(@PathVariable Long id) {
         folderService.permanentlyDelete(id);
         return ResponseEntity.ok(ApiResponse.success("Folder permanently deleted", null));
@@ -150,6 +160,7 @@ public class FolderController {
 
     // ================= SHARE FOLDER WITH USER =================
     @PostMapping("/{id}/share")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> shareFolder(
             @PathVariable Long id,
             @RequestBody ShareRequest shareRequest) {
@@ -169,6 +180,7 @@ public class FolderController {
 
     // ================= GET PEOPLE WITH ACCESS (SHARES) =================
     @GetMapping("/{id}/shares")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<SharedFileResponse>>> getFolderShares(
             @PathVariable Long id) {
         
@@ -181,6 +193,7 @@ public class FolderController {
 
     // ================= GENERATE SHARE LINK =================
     @PostMapping("/{id}/share-link")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<ShareLinkResponse>> generateShareLink(
             @PathVariable Long id) {
 
@@ -196,6 +209,7 @@ public class FolderController {
 
     // ================= GET SHARE LINK =================
     @GetMapping("/{id}/share-link")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<ShareLinkResponse>> getShareLink(
             @PathVariable Long id) {
 
@@ -207,39 +221,41 @@ public class FolderController {
         );
     }
 
-// ================= GET SHARED FOLDER (WITH SUBFOLDER SUPPORT) =================
-@GetMapping("/shared-link/{token}")
-public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
-        @PathVariable String token,
-        @RequestParam(required = false) Long subfolderId) {
-    
-    log.info("📥 GET /api/folders/shared-link/{} with subfolderId: {}", token, subfolderId);
-    
-    try {
-        FolderResponse response;
+    // ================= GET SHARED FOLDER (WITH SUBFOLDER SUPPORT) =================
+    @GetMapping("/shared-link/{token}")
+    @Transactional(readOnly = true)  // ADD THIS
+    public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
+            @PathVariable String token,
+            @RequestParam(required = false) Long subfolderId) {
         
-        if (subfolderId != null) {
-            // Fetch specific subfolder within the shared folder
-            log.info("📂 Fetching subfolder {} within shared folder", subfolderId);
-            response = folderShareService.getSharedSubfolderByToken(token, subfolderId);
-        } else {
-            // Fetch root shared folder
-            log.info("📁 Fetching root shared folder");
-            response = folderShareService.getSharedFolderByToken(token);
+        log.info("📥 GET /api/folders/shared-link/{} with subfolderId: {}", token, subfolderId);
+        
+        try {
+            FolderResponse response;
+            
+            if (subfolderId != null) {
+                // Fetch specific subfolder within the shared folder
+                log.info("📂 Fetching subfolder {} within shared folder", subfolderId);
+                response = folderShareService.getSharedSubfolderByToken(token, subfolderId);
+            } else {
+                // Fetch root shared folder
+                log.info("📁 Fetching root shared folder");
+                response = folderShareService.getSharedFolderByToken(token);
+            }
+            
+            log.info("✅ Successfully retrieved folder: {}", response.getName());
+            return ResponseEntity.ok(ApiResponse.success(response));
+            
+        } catch (Exception e) {
+            log.error("❌ Failed to get shared folder: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.error(e.getMessage()));
         }
-        
-        log.info("✅ Successfully retrieved folder: {}", response.getName());
-        return ResponseEntity.ok(ApiResponse.success(response));
-        
-    } catch (Exception e) {
-        log.error("❌ Failed to get shared folder: {}", e.getMessage(), e);
-        return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiResponse.error(e.getMessage()));
     }
-}
 
     // ================= DELETE SHARE LINK =================
     @DeleteMapping("/{id}/share-link")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> revokeShareLink(@PathVariable Long id) {
         folderShareService.revokeShareLink(id);
         return ResponseEntity.ok(ApiResponse.success("Share link deleted", null));
@@ -247,6 +263,7 @@ public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
 
     // ================= REVOKE SHARE =================
     @DeleteMapping("/{id}/shares/{shareId}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> revokeShare(
             @PathVariable Long id,
             @PathVariable Long shareId) {
@@ -256,6 +273,7 @@ public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
 
     // ================= UPDATE SHARE PERMISSION =================
     @PatchMapping("/{id}/shares/{shareId}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> updateSharePermission(
             @PathVariable Long id,
             @PathVariable Long shareId,
@@ -266,6 +284,7 @@ public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
 
     // ================= REMOVE ALL ACCESS =================
     @DeleteMapping("/{folderId}/shares/all")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> removeAllAccess(@PathVariable Long folderId) {
         folderShareService.removeAllAccessToFolder(folderId);
         return ResponseEntity.ok(
@@ -275,6 +294,7 @@ public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
 
     // ================= GET FOLDERS SHARED WITH ME =================
     @GetMapping("/shared-with-me")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<FolderResponse>>> getFoldersSharedWithMe() {
         User currentUser = authService.getCurrentUserEntity();
         return ResponseEntity.ok(
@@ -284,6 +304,7 @@ public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
 
     // ================= GET FOLDERS SHARED BY ME =================
     @GetMapping("/shared-by-me")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<FolderResponse>>> getFoldersSharedByMe() {
         User currentUser = authService.getCurrentUserEntity();
         return ResponseEntity.ok(
@@ -293,6 +314,7 @@ public ResponseEntity<ApiResponse<FolderResponse>> getSharedFolder(
 
     // ================= REMOVE SELF FROM SHARED FOLDER =================
     @DeleteMapping("/{folderId}/remove-me")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> removeMeFromSharedFolder(
             @PathVariable Long folderId) {
         

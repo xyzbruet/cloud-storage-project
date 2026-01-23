@@ -18,50 +18,21 @@ public class AuthController {
 
     private final AuthService authService;
 
-    // ================= SEND LOGIN OTP =================
-    @PostMapping("/send-login-otp")
-    public ResponseEntity<ApiResponse<Void>> sendLoginOTP(
-            @Valid @RequestBody LoginOTPRequest request) {
-        authService.sendLoginOTP(request);
-        return ResponseEntity.ok(
-                ApiResponse.success("OTP sent to your email", null)
-        );
-    }
-
-    // ================= VERIFY LOGIN OTP =================
-    @PostMapping("/verify-login-otp")
-    public ResponseEntity<ApiResponse<AuthResponse>> verifyLoginOTP(
-            @Valid @RequestBody VerifyOTPRequest request) {
-        AuthResponse response = authService.verifyLoginOTP(request);
+    // ================= SIMPLE REGISTRATION =================
+    @PostMapping("/register")
+    public ResponseEntity<ApiResponse<AuthResponse>> register(
+            @Valid @RequestBody RegisterRequest request) {
+        log.info("Registration attempt for email: {}", request.getEmail());
+        AuthResponse response = authService.register(request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    // ================= SEND REGISTER OTP =================
-    @PostMapping("/send-register-otp")
-    public ResponseEntity<ApiResponse<Void>> sendRegisterOTP(
-            @Valid @RequestBody RegisterOTPRequest request) {
-
-        log.info("Attempting to send OTP to: {}", request.getEmail());
-        authService.sendRegisterOTP(request);
-
-        return ResponseEntity.ok(
-                ApiResponse.success("OTP sent to your email", null)
-        );
-    }
-
-    // ================= VERIFY REGISTER OTP =================
-    @PostMapping("/verify-register-otp")
-    public ResponseEntity<ApiResponse<AuthResponse>> verifyRegisterOTP(
-            @Valid @RequestBody VerifyOTPRequest request) {
-        AuthResponse response = authService.verifyRegisterOTP(request);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    // ================= GOOGLE LOGIN =================
-    @PostMapping("/google-login")
-    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
-            @Valid @RequestBody GoogleLoginRequest request) {
-        AuthResponse response = authService.googleLogin(request);
+    // ================= SIMPLE LOGIN =================
+    @PostMapping("/login")
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request) {
+        log.info("Login attempt for email: {}", request.getEmail());
+        AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -71,4 +42,49 @@ public class AuthController {
         AuthResponse response = authService.getCurrentUser();
         return ResponseEntity.ok(ApiResponse.success(response));
     }
+
+    // ================= FUTURE: SEND LOGIN OTP =================
+    // @PostMapping("/send-login-otp")
+    // public ResponseEntity<ApiResponse<Void>> sendLoginOTP(
+    //         @Valid @RequestBody LoginOTPRequest request) {
+    //     authService.sendLoginOTP(request);
+    //     return ResponseEntity.ok(
+    //             ApiResponse.success("OTP sent to your email", null)
+    //     );
+    // }
+
+    // ================= FUTURE: VERIFY LOGIN OTP =================
+    // @PostMapping("/verify-login-otp")
+    // public ResponseEntity<ApiResponse<AuthResponse>> verifyLoginOTP(
+    //         @Valid @RequestBody VerifyOTPRequest request) {
+    //     AuthResponse response = authService.verifyLoginOTP(request);
+    //     return ResponseEntity.ok(ApiResponse.success(response));
+    // }
+
+    // ================= FUTURE: SEND REGISTER OTP =================
+    // @PostMapping("/send-register-otp")
+    // public ResponseEntity<ApiResponse<Void>> sendRegisterOTP(
+    //         @Valid @RequestBody RegisterOTPRequest request) {
+    //     log.info("Attempting to send OTP to: {}", request.getEmail());
+    //     authService.sendRegisterOTP(request);
+    //     return ResponseEntity.ok(
+    //             ApiResponse.success("OTP sent to your email", null)
+    //     );
+    // }
+
+    // ================= FUTURE: VERIFY REGISTER OTP =================
+    // @PostMapping("/verify-register-otp")
+    // public ResponseEntity<ApiResponse<AuthResponse>> verifyRegisterOTP(
+    //         @Valid @RequestBody VerifyOTPRequest request) {
+    //     AuthResponse response = authService.verifyRegisterOTP(request);
+    //     return ResponseEntity.ok(ApiResponse.success(response));
+    // }
+
+    // ================= FUTURE: GOOGLE LOGIN =================
+    // @PostMapping("/google-login")
+    // public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
+    //         @Valid @RequestBody GoogleLoginRequest request) {
+    //     AuthResponse response = authService.googleLogin(request);
+    //     return ResponseEntity.ok(ApiResponse.success(response));
+    // }
 }

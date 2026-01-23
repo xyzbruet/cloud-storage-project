@@ -55,10 +55,22 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
 
-                // Auth endpoints
-                .requestMatchers("/api/auth/**").permitAll()
+                // Simple Auth endpoints (no JWT required)
+                .requestMatchers(
+                    "/api/auth/login",
+                    "/api/auth/register"
+                ).permitAll()
 
-                // Shared links
+                // Future: OTP/Google endpoints (commented for now)
+                // .requestMatchers(
+                //     "/api/auth/send-login-otp",
+                //     "/api/auth/verify-login-otp",
+                //     "/api/auth/send-register-otp",
+                //     "/api/auth/verify-register-otp",
+                //     "/api/auth/google-login"
+                // ).permitAll()
+
+                // Shared links (public access)
                 .requestMatchers(
                     "/api/folders/shared-link/**",
                     "/api/files/shared-link/**",
@@ -66,14 +78,16 @@ public class SecurityConfig {
                     "/uploads/**"
                 ).permitAll()
 
-                // Protected endpoints
+                // Protected endpoints (requires JWT)
                 .requestMatchers(
+                    "/api/auth/me",
                     "/api/user/**",
                     "/api/files/**",
                     "/api/folders/**",
                     "/api/dashboard/**"
                 ).authenticated()
 
+                // All other requests require authentication
                 .anyRequest().authenticated()
             )
 
@@ -87,6 +101,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
+        // Allowed origins
         configuration.setAllowedOrigins(Arrays.asList(
             "http://localhost:5173",
             "http://localhost:3000",
@@ -95,22 +110,28 @@ public class SecurityConfig {
             "https://cloud-storage-project-tau.vercel.app"
         ));
 
+        // Allowed methods
         configuration.setAllowedMethods(Arrays.asList(
             "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
         ));
 
+        // Allowed headers
         configuration.setAllowedHeaders(List.of("*"));
+        
+        // Allow credentials
         configuration.setAllowCredentials(true);
+        
+        // Max age for preflight cache
         configuration.setMaxAge(3600L);
 
+        // Exposed headers (so frontend can read them)
         configuration.setExposedHeaders(Arrays.asList(
             "Authorization",
             "Content-Type",
             "Content-Disposition"
         ));
 
-        UrlBasedCorsConfigurationSource source =
-            new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
 
         return source;

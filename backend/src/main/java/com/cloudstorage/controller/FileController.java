@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.http.HttpStatus;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;  // ADD THIS
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -42,6 +43,7 @@ public class FileController {
 
     // ================= LIST FILES =================
     @GetMapping
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<FileResponse>>> getFiles(
             @RequestParam(required = false) Long folderId) {
 
@@ -55,6 +57,7 @@ public class FileController {
 
     // ================= UPLOAD =================
     @PostMapping("/upload")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<FileResponse>> uploadFile(
             @RequestParam("file") MultipartFile file,
             @RequestParam(required = false) Long folderId) throws IOException {
@@ -66,6 +69,7 @@ public class FileController {
 
     // ================= DOWNLOAD WITH SHARE TOKEN SUPPORT =================
     @GetMapping("/{id}/download")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<Resource> downloadFileWithShareToken(
             @PathVariable Long id,
             @RequestParam(required = false) String shareToken) throws IOException {
@@ -91,6 +95,7 @@ public class FileController {
 
     // ================= DELETE =================
     @DeleteMapping("/{id}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> deleteFile(@PathVariable Long id) {
         fileService.deleteFile(id);
         return ResponseEntity.ok(ApiResponse.success(null));
@@ -98,6 +103,7 @@ public class FileController {
 
     // ================= RESTORE =================
     @PostMapping("/{id}/restore")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<File>> restoreFile(@PathVariable Long id) {
         return ResponseEntity.ok(
                 ApiResponse.success(fileService.restoreFile(id))
@@ -106,6 +112,7 @@ public class FileController {
 
     // ================= STAR =================
     @PostMapping("/{id}/star")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<FileResponse>> toggleStar(@PathVariable Long id) {
         return ResponseEntity.ok(
                 ApiResponse.success(fileService.toggleStar(id))
@@ -114,6 +121,7 @@ public class FileController {
 
     // ================= STARRED =================
     @GetMapping("/starred")
+    @Transactional(readOnly = true)  // ADD THIS - THIS IS THE FIX FOR YOUR ERROR
     public ResponseEntity<ApiResponse<List<FileResponse>>> getStarredFiles() {
         return ResponseEntity.ok(
                 ApiResponse.success(fileService.getStarredFiles())
@@ -122,6 +130,7 @@ public class FileController {
 
     // ================= TRASH =================
     @GetMapping("/trash")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<FileResponse>>> getTrash() {
         return ResponseEntity.ok(
                 ApiResponse.success(fileService.getTrashFiles())
@@ -130,6 +139,7 @@ public class FileController {
 
     // ================= PERMANENT DELETE =================
     @DeleteMapping("/{id}/permanent")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> permanentlyDelete(@PathVariable Long id) {
         fileService.permanentlyDeleteFile(id);
         return ResponseEntity.ok(ApiResponse.success(null));
@@ -137,12 +147,12 @@ public class FileController {
 
     // ================= SHARE WITH USER =================
     @PostMapping("/{id}/share")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> shareFile(
             @PathVariable Long id,
             @RequestBody ShareRequest shareRequest) {
 
         User currentUser = authService.getCurrentUserEntity();
-
         shareService.shareFileWithUser(id, shareRequest, currentUser);
 
         return ResponseEntity.ok(
@@ -152,6 +162,7 @@ public class FileController {
 
     // ================= GENERATE SHARE LINK =================
     @PostMapping("/{id}/share-link")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<ShareLinkResponse>> generateShareLink(@PathVariable Long id) {
         return ResponseEntity.ok(
                 ApiResponse.success(fileService.generateShareLink(id))
@@ -160,6 +171,7 @@ public class FileController {
 
     // ================= GET SHARED WITH ME =================
     @GetMapping("/shared-with-me")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<SharedFileResponse>>> getSharedWithMe() {
         return ResponseEntity.ok(
                 ApiResponse.success(fileService.getSharedWithMe())
@@ -168,6 +180,7 @@ public class FileController {
 
     // ================= GET PEOPLE WITH ACCESS =================
     @GetMapping("/{id}/shares")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<List<SharedFileResponse>>> getPeopleWithAccess(@PathVariable Long id) {
         return ResponseEntity.ok(
                 ApiResponse.success(fileService.getPeopleWithAccess(id))
@@ -176,6 +189,7 @@ public class FileController {
 
     // ================= REVOKE SHARE =================
     @DeleteMapping("/{id}/shares/{shareId}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> revokeShare(
             @PathVariable Long id,
             @PathVariable Long shareId) {
@@ -185,10 +199,10 @@ public class FileController {
 
     // ================= REMOVE SELF FROM SHARED ACCESS =================
     @DeleteMapping("/{fileId}/remove-me")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> removeMeFromSharedFile(@PathVariable Long fileId) {
 
         User currentUser = authService.getCurrentUserEntity();
-
         shareService.removeSelfFromSharedFile(fileId, currentUser);
 
         return ResponseEntity.ok(ApiResponse.success("Removed from your drive", null));
@@ -196,6 +210,7 @@ public class FileController {
 
     // ================= DISABLE SHARE LINK =================
     @PostMapping("/{id}/share-link/disable")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> disableShareLink(
             @PathVariable Long id,
             @RequestParam String token) {
@@ -205,6 +220,7 @@ public class FileController {
 
     // ================= PUBLIC SHARE LINK (NO AUTH REQUIRED) =================
     @GetMapping("/shared-link/{token}")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<FileResponse>> getFileByShareLink(
             @PathVariable String token) {
 
@@ -215,6 +231,7 @@ public class FileController {
 
     // ================= PUBLIC SHARE LINK DOWNLOAD (NO AUTH REQUIRED) =================
     @GetMapping("/shared-link/{token}/download")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<byte[]> downloadByShareLink(
             @PathVariable String token) {
 
@@ -230,6 +247,7 @@ public class FileController {
 
     // ================= UPDATE SHARE PERMISSION =================
     @PatchMapping("/{id}/shares/{shareId}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> updateSharePermission(
             @PathVariable Long id,
             @PathVariable Long shareId,
@@ -240,6 +258,7 @@ public class FileController {
 
     // ================= GET EXISTING SHARE LINK =================
     @GetMapping("/{id}/share-link")
+    @Transactional(readOnly = true)  // ADD THIS
     public ResponseEntity<ApiResponse<ShareLinkResponse>> getShareLink(@PathVariable Long id) {
         ShareLinkResponse link = fileService.getExistingShareLink(id);
         if (link == null) {
@@ -250,6 +269,7 @@ public class FileController {
 
     // ================= DELETE SHARE LINK =================
     @DeleteMapping("/{id}/share-link")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> revokeShareLink(@PathVariable Long id) {
         fileService.revokeShareLink(id);
         return ResponseEntity.ok(ApiResponse.success("Share link deleted", null));
@@ -257,6 +277,7 @@ public class FileController {
 
     // ================= GET FILES SHARED BY ME =================
     @GetMapping("/shared-by-me")
+    @Transactional(readOnly = true)  // ADD THIS
     public ApiResponse<List<SharedByMeResponse>> getFilesSharedByMe() {
         User currentUser = authService.getCurrentUserEntity();   
         return ApiResponse.success(shareService.getFilesSharedByMe(currentUser));
@@ -264,10 +285,10 @@ public class FileController {
 
     // ================= REMOVE ALL ACCESS TO A FILE =================
     @DeleteMapping("/{fileId}/shares/all")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> removeAllAccess(@PathVariable Long fileId) {
 
         User currentUser = authService.getCurrentUserEntity();
-
         shareService.removeAllAccessToFile(fileId, currentUser);
 
         return ResponseEntity.ok(
@@ -277,10 +298,10 @@ public class FileController {
 
     // ================= TOGGLE STAR FOR SHARED FILE =================
     @PostMapping("/{fileId}/star-shared")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<Void>> toggleStarShared(@PathVariable Long fileId) {
 
         User currentUser = authService.getCurrentUserEntity();
-
         shareService.toggleStarForSharedFile(fileId, currentUser);
 
         return ResponseEntity.ok(
@@ -290,6 +311,7 @@ public class FileController {
 
     // ================= UPDATE FILE (RENAME OR MOVE) =================
     @PutMapping("/{id}")
+    @Transactional  // ADD THIS
     public ResponseEntity<ApiResponse<FileResponse>> updateFile(
             @PathVariable Long id,
             @RequestBody Map<String, Object> updates) {
