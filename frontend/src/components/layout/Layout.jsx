@@ -2,6 +2,7 @@ import { useState, createContext, useContext } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import MobileBottomNav from './MobileBottomNav';
 
 // Create a context for layout actions
 export const LayoutContext = createContext();
@@ -77,7 +78,7 @@ export default function Layout() {
         {/* Navbar */}
         <Navbar onMenuClick={toggleSidebar} />
 
-        {/* Sidebar */}
+        {/* Desktop Sidebar - Hidden on mobile */}
         <Sidebar 
           isOpen={sidebarOpen} 
           onClose={closeSidebar}
@@ -94,8 +95,14 @@ export default function Layout() {
           />
         )}
 
+        {/* Mobile Bottom Navigation - Only visible on mobile */}
+        <MobileBottomNav 
+          onUpload={handleSidebarUpload}
+          onCreateFolder={handleSidebarCreateFolder}
+        />
+
         {/* Main Content */}
-        <main className="lg:ml-64 pt-16 min-h-screen transition-all duration-300">
+        <main className="lg:ml-64 pt-16 pb-20 lg:pb-6 min-h-screen transition-all duration-300">
           <div className="p-4 sm:p-6 lg:p-8">
             <Outlet />
           </div>

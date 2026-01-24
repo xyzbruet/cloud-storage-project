@@ -12,9 +12,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuthStore } from '../../store/authStore';
 import api from '../../services/api';
-
 import UploadMenu from '../common/UploadMenu';
-
 
 const navigation = [
   { name: 'Home', href: '/dashboard', icon: Home },
