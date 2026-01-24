@@ -137,7 +137,7 @@ export default function Trash() {
         await folderService.restoreFolder(item.id);
         setFolders(prevFolders => prevFolders.filter(f => f.id !== item.id));
       } else {
-        await axios.post(`/api/files/${item.id}/restore`);
+        await api.post(`/files/${item.id}/restore`);
         setFiles(prevFiles => prevFiles.filter(f => f.id !== item.id));
       }
 
@@ -185,7 +185,7 @@ export default function Trash() {
           throw folderErr;
         }
       } else {
-        await axios.delete(`/api/files/${item.id}/permanent`);
+        await api.delete(`/files/${item.id}/permanent`);
         setFiles(prevFiles => prevFiles.filter(f => f.id !== item.id));
       }
 

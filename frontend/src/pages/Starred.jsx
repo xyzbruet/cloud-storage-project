@@ -35,7 +35,7 @@ export default function Starred() {
   async function fetchStarredFiles() {
     setLoading(true);
     try {
-      const response = await axios.get('/api/files/starred');
+      const response = await api.get('/files/starred');
       const data = response.data;
       setFiles(data.data || data || []);
       setError("");
@@ -229,7 +229,7 @@ export default function Starred() {
                     <div className="aspect-square bg-gradient-to-br from-blue-50 to-indigo-50 rounded-md mb-1.5 flex items-center justify-center overflow-hidden">
                       {file.mimeType?.startsWith('image/') ? (
                         <img
-                          src={`/api/files/${file.id}/download`}
+                          src={`/files/${file.id}/download`}
                           alt={file.name}
                           className="w-full h-full object-cover"
                           onError={(e) => {
