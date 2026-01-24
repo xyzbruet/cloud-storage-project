@@ -1,20 +1,12 @@
 // hooks/useFileOperations.js
 import { useState } from 'react';
+import api from '../services/api';
 import folderService from '../services/folderService';
 
 export default function useFileOperations(fetchData, showToast) {
   const [contextMenu, setContextMenu] = useState(null);
   const [renameItem, setRenameItem] = useState(null);
   const [moveItem, setMoveItem] = useState(null);
-
-  const getAuthToken = () => {
-    return (
-      localStorage.getItem('token') ||
-      localStorage.getItem('authToken') ||
-      sessionStorage.getItem('token') ||
-      sessionStorage.getItem('authToken')
-    );
-  };
 
   const handleDelete = async (item) => {
     const isFolder = item.isFolder || item.mimeType === 'folder';
@@ -27,20 +19,12 @@ export default function useFileOperations(fetchData, showToast) {
     }
 
     try {
-      const token = getAuthToken();
-      
       if (isFolder) {
         // Use folder service for folders
         await folderService.deleteFolder(item.id);
       } else {
-        // Use file API for files
-        const endpoint = `/api/files/${item.id}`;
-        const response = await fetch(endpoint, {
-          method: 'DELETE',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-
-        if (!response.ok) throw new Error('Delete failed');
+        // Use API client for files
+        await api.delete(`/files/${item.id}`);
       }
 
       showToast?.(
@@ -67,19 +51,8 @@ export default function useFileOperations(fetchData, showToast) {
         // Use folder service for folders
         await folderService.renameFolder(item.id, newName);
       } else {
-        // Use file API for files
-        const token = getAuthToken();
-        const endpoint = `/api/files/${item.id}`;
-        const response = await fetch(endpoint, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ name: newName }),
-        });
-
-        if (!response.ok) throw new Error('Rename failed');
+        // Use API client for files
+        await api.put(`/files/${item.id}`, { name: newName });
       }
 
       showToast?.(
@@ -98,7 +71,6 @@ export default function useFileOperations(fetchData, showToast) {
     const itemsArray = Array.isArray(items) ? items : [items];
     
     try {
-      const token = getAuthToken();
       let successCount = 0;
       let errorCount = 0;
 
@@ -108,31 +80,15 @@ export default function useFileOperations(fetchData, showToast) {
         try {
           if (isFolder) {
             // Use PATCH for folders - update parentId
-            const response = await fetch(`/api/folders/${item.id}`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              body: JSON.stringify({ parentId: targetFolderId }),
+            await api.patch(`/folders/${item.id}`, { 
+              parentId: targetFolderId 
             });
-
-            if (!response.ok) throw new Error('Move failed');
           } else {
             // Use PUT for files - update folderId
-            const response = await fetch(`/api/files/${item.id}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {}),
-              },
-              body: JSON.stringify({ 
-                folderId: targetFolderId,
-                name: item.name // Keep the same name
-              }),
+            await api.put(`/files/${item.id}`, { 
+              folderId: targetFolderId,
+              name: item.name // Keep the same name
             });
-
-            if (!response.ok) throw new Error('Move failed');
           }
           successCount++;
         } catch (err) {
@@ -172,14 +128,12 @@ export default function useFileOperations(fetchData, showToast) {
     }
 
     try {
-      const token = getAuthToken();
-      const response = await fetch(`/api/files/${file.id}/download`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      const response = await api.get(`/files/${file.id}/download`, {
+        responseType: 'blob'
       });
 
-      if (!response.ok) throw new Error('Download failed');
-
-      const blob = await response.blob();
+      // Create blob URL and trigger download
+      const blob = new Blob([response.data]);
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -188,6 +142,7 @@ export default function useFileOperations(fetchData, showToast) {
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      
       showToast?.('success', 'File downloaded successfully!');
     } catch (error) {
       console.error('Download failed', error);
@@ -197,17 +152,7 @@ export default function useFileOperations(fetchData, showToast) {
 
   const handleToggleStar = async (fileId) => {
     try {
-      const token = getAuthToken();
-      const response = await fetch(`/api/files/${fileId}/star`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-
-      if (!response.ok) throw new Error('Star toggle failed');
-
+      await api.post(`/files/${fileId}/star`);
       await fetchData?.();
     } catch (err) {
       console.error('Star toggle failed', err);

@@ -166,7 +166,7 @@ export default function FileCard({
         ) : item.mimeType?.startsWith('image/') ? (
           <>
             <img
-              src={`/api/files/${item.id}/download`}
+              src={`/files/${item.id}/download`}
               alt={item.name}
               className="w-full h-full object-cover"
               onError={(e) => {
