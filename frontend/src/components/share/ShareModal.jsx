@@ -149,20 +149,21 @@ export default function ShareModal({ file, onClose, onShared }) {
   }, [onClose]);
 
   const fetchSharedUsers = useCallback(async () => {
-    try {
-      const response = await api.get(`/${itemType}/${file.id}/shares`);
-      
-      const shares = response.data || [];
-      setSharedUsers(shares);
-    } catch (err) {
-      console.error('Failed to fetch shared users:', err);
-      if (err.response?.status === 403) {
-        showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
-      } else if (err.response?.status === 401) {
-        showMessage('error', 'Authentication required. Please log in again.');
-      }
+  try {
+    const response = await api.get(`/${itemType}/${file.id}/shares`);
+    
+    // ✅ CORRECT - Extract the data array properly
+    const shares = response.data?.data || response.data || [];
+    setSharedUsers(Array.isArray(shares) ? shares : []);
+  } catch (err) {
+    console.error('Failed to fetch shared users:', err);
+    if (err.response?.status === 403) {
+      showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
+    } else if (err.response?.status === 401) {
+      showMessage('error', 'Authentication required. Please log in again.');
     }
-  }, [file.id, itemType, itemLabel]);
+  }
+}, [file.id, itemType, itemLabel]);
 
   const checkExistingLink = useCallback(async () => {
     try {

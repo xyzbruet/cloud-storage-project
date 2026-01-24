@@ -124,7 +124,7 @@ export function SharedByMe() {
 
       // Get current user ID for client-side filtering
       try {
-        const userResponse = await axios.get('/api/auth/me');
+        const userResponse = await api.get('/auth/me');
         currentUserId = userResponse.data?.id || userResponse.data?.data?.id;
       } catch (err) {
         console.error('Failed to fetch user info:', err);
@@ -133,7 +133,7 @@ export function SharedByMe() {
       if (currentFolder) {
         // When inside a folder, fetch ALL files and folders, then filter client-side
         try {
-          const filesResponse = await axios.get(`/api/files?folderId=${currentFolder.id}`);
+          const filesResponse = await api.get(`/files?folderId=${currentFolder.id}`);
           const filesData = filesResponse.data?.data;
           if (Array.isArray(filesData)) {
             // Client-side filter: only show files owned by current user
@@ -147,7 +147,7 @@ export function SharedByMe() {
         }
 
         try {
-          const foldersResponse = await axios.get(`/api/folders/${currentFolder.id}/subfolders`);
+          const foldersResponse = await api.get(`/folders/${currentFolder.id}/subfolders`);
           const foldersData = foldersResponse.data?.data;
           if (Array.isArray(foldersData)) {
             // Client-side filter: only show folders owned by current user
@@ -167,7 +167,7 @@ export function SharedByMe() {
         }
       } else {
         try {
-          const filesResponse = await axios.get('/api/files/shared-by-me');
+          const filesResponse = await api.get('/files/shared-by-me');
           const filesData = filesResponse.data?.data;
           if (Array.isArray(filesData)) {
             allItems = [...filesData];
@@ -177,7 +177,7 @@ export function SharedByMe() {
         }
 
         try {
-          const foldersResponse = await axios.get('/api/folders/shared-by-me');
+          const foldersResponse = await api.get('/folders/shared-by-me');
           const foldersData = foldersResponse.data?.data || foldersResponse.data?.folders || foldersResponse.data;
           if (Array.isArray(foldersData)) {
             const formattedFolders = foldersData.map(folder => ({
@@ -213,7 +213,7 @@ export function SharedByMe() {
 
     try {
       setUploadingFile(true);
-      const response = await axios.post('/api/files/upload', formData, {
+      const response = await api.post('/files/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -298,7 +298,7 @@ export function SharedByMe() {
           formData.append('folderId', currentParentId);
           
           try {
-            await axios.post('/api/files/upload', formData, {
+            await api.post('/files/upload', formData, {
               headers: { 'Content-Type': 'multipart/form-data' }
             });
             successCount++;
@@ -335,7 +335,7 @@ export function SharedByMe() {
 
     try {
       setCreatingFolder(true);
-      const response = await axios.post('/api/folders', {
+      const response = await api.post('/folders', {
         name: newFolderName.trim(),
         parentId: currentFolder?.id || null
       });
@@ -429,10 +429,10 @@ export function SharedByMe() {
 
     try {
       const endpoint = isFolder 
-        ? `/api/folders/${fileId}/shares/all` 
-        : `/api/files/${fileId}/shares/all`;
+        ? `/folders/${fileId}/shares/all` 
+        : `/files/${fileId}/shares/all`;
       
-      await axios.delete(endpoint);
+      await api.delete(endpoint);
       
       toast('All access removed and item moved to trash', 'success');
       window.dispatchEvent(new Event('storage-updated'));

@@ -119,7 +119,7 @@ export default function SharedWithMe() {
 
       // Get current user ID for client-side filtering
       try {
-        const userResponse = await axios.get('/api/auth/me');
+        const userResponse = await api.get('/auth/me');
         currentUserId = userResponse.data?.id || userResponse.data?.data?.id;
         console.log('Current User ID:', currentUserId); // DEBUG
       } catch (err) {
@@ -131,7 +131,7 @@ export default function SharedWithMe() {
         
         // Fetch ALL files and folders, then filter client-side
         try {
-          const filesResponse = await axios.get(`/api/files?folderId=${currentFolder.id}`);
+          const filesResponse = await api.get(`/files?folderId=${currentFolder.id}`);
           const filesData = filesResponse.data?.data;
           console.log('Raw files data:', filesData); // DEBUG
           
@@ -171,7 +171,7 @@ export default function SharedWithMe() {
         }
 
         try {
-          const foldersResponse = await axios.get(`/api/folders/${currentFolder.id}/subfolders`);
+          const foldersResponse = await api.get(`/folders/${currentFolder.id}/subfolders`);
           const foldersData = foldersResponse.data?.data;
           console.log('Raw folders data:', foldersData); // DEBUG
           
@@ -218,7 +218,7 @@ export default function SharedWithMe() {
         }
       } else {
         try {
-          const filesResponse = await axios.get('/api/files/shared-with-me');
+          const filesResponse = await api.get('/files/shared-with-me');
           const filesData = filesResponse.data?.data;
           if (Array.isArray(filesData)) {
             allItems = [...filesData];
@@ -228,7 +228,7 @@ export default function SharedWithMe() {
         }
 
         try {
-          const foldersResponse = await axios.get('/api/folders/shared-with-me');
+          const foldersResponse = await api.get('/folders/shared-with-me');
           const foldersData = foldersResponse.data?.data;
           if (Array.isArray(foldersData)) {
             const formattedFolders = foldersData.map(folder => ({
@@ -269,7 +269,7 @@ export default function SharedWithMe() {
 
     try {
       setUploadingFile(true);
-      const response = await axios.post('/api/files/upload', formData, {
+      const response = await api.post('/files/upload', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       
@@ -339,7 +339,7 @@ export default function SharedWithMe() {
           const fullPath = pathParts.slice(0, i + 1).join('/');
           
           if (!createdFolders.has(fullPath)) {
-            const folderResponse = await axios.post('/api/folders', {
+            const folderResponse = await api.post('/folders', {
               name: folderName,
               parentId: currentParentId
             });
@@ -358,7 +358,7 @@ export default function SharedWithMe() {
           formData.append('folderId', currentParentId);
           
           try {
-            await axios.post('/api/files/upload', formData, {
+            await api.post('/files/upload', formData, {
               headers: { 'Content-Type': 'multipart/form-data' }
             });
             successCount++;
@@ -405,7 +405,7 @@ export default function SharedWithMe() {
 
     try {
       setCreatingFolder(true);
-      const response = await axios.post('/api/folders', {
+      const response = await api.post('/folders', {
         name: newFolderName.trim(),
         parentId: currentFolder.id
       });
@@ -496,9 +496,9 @@ export default function SharedWithMe() {
 
     try {
       const endpoint = isFolder 
-        ? `/api/folders/${fileId}/remove-me` 
-        : `/api/files/${fileId}/remove-me`;
-      await axios.delete(endpoint);
+        ? `/folders/${fileId}/remove-me` 
+        : `/files/${fileId}/remove-me`;
+      await api.delete(endpoint);
       toast(`${isFolder ? 'Folder' : 'File'} removed from your drive`, 'success');
       window.dispatchEvent(new Event('storage-updated'));
     } catch (error) {
@@ -525,7 +525,7 @@ export default function SharedWithMe() {
     setFiles(prevFiles => prevFiles.filter(f => f.id !== fileId));
 
     try {
-      await axios.delete(`/api/files/${fileId}`);
+      await api.delete(`/files/${fileId}`);
       toast('File deleted successfully', 'success');
       await fetchSharedFiles();
       window.dispatchEvent(new Event('storage-updated'));
@@ -551,7 +551,7 @@ export default function SharedWithMe() {
     setFiles(prevFiles => prevFiles.filter(f => f.id !== folderId));
 
     try {
-      await axios.delete(`/api/folders/${folderId}`);
+      await api.delete(`/folders/${folderId}`);
       toast('Folder deleted successfully', 'success');
       await fetchSharedFiles();
       window.dispatchEvent(new Event('storage-updated'));
