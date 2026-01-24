@@ -8,8 +8,10 @@ import {
   Link2,
   Edit,
   Eye,
-  FolderOpen
+  FolderOpen,
+  FileText
 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function FileCard({ 
   item, 
@@ -31,6 +33,10 @@ export default function FileCard({
   topLeftCustomBadges = null
 }) {
   const isFolder = item.isFolder || item.mimeType === 'folder';
+  const [thumbnailError, setThumbnailError] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [videoPreview, setVideoPreview] = useState(null);
 
   const getFileIcon = (item) => {
     if (isFolder) return '📁';
@@ -44,7 +50,133 @@ export default function FileCard({
     if (mimeType?.includes('excel') || mimeType?.includes('sheet')) return '📊';
     if (mimeType?.includes('presentation') || mimeType?.includes('powerpoint')) return '📊';
     if (mimeType?.includes('zip') || mimeType?.includes('rar')) return '📦';
+    if (mimeType?.startsWith('text/')) return '📄';
     return '📄';
+  };
+
+  const isPDF = item.mimeType === 'application/pdf';
+  const isImage = item.mimeType?.startsWith('image/');
+  const isVideo = item.mimeType?.startsWith('video/');
+  const isText = item.mimeType?.startsWith('text/');
+
+  // Load image thumbnail
+  useEffect(() => {
+    if (isImage && !thumbnailError && !imagePreview) {
+      loadImageThumbnail();
+    }
+  }, [item.id, isImage]);
+
+  // Load video thumbnail
+  useEffect(() => {
+    if (isVideo && !thumbnailError && !videoPreview) {
+      loadVideoThumbnail();
+    }
+  }, [item.id, isVideo]);
+
+  // Load PDF first page as thumbnail
+  useEffect(() => {
+    if (isPDF && !thumbnailError) {
+      loadPDFThumbnail();
+    }
+  }, [item.id, isPDF]);
+
+  // Cleanup blob URLs
+  useEffect(() => {
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
+      if (pdfPreview && pdfPreview.startsWith('blob:')) URL.revokeObjectURL(pdfPreview);
+    };
+  }, [imagePreview, videoPreview, pdfPreview]);
+
+  const loadImageThumbnail = async () => {
+    try {
+      const api = (await import('../../services/api')).default;
+      const response = await api.get(`/files/${item.id}/download`, {
+        responseType: 'blob'
+      });
+      
+      const url = URL.createObjectURL(response.data);
+      setImagePreview(url);
+    } catch (err) {
+      console.error('Failed to load image:', err);
+      setThumbnailError(true);
+    }
+  };
+
+  const loadVideoThumbnail = async () => {
+    try {
+      const api = (await import('../../services/api')).default;
+      const response = await api.get(`/files/${item.id}/download`, {
+        responseType: 'blob'
+      });
+      
+      const url = URL.createObjectURL(response.data);
+      setVideoPreview(url);
+    } catch (err) {
+      console.error('Failed to load video:', err);
+      setThumbnailError(true);
+    }
+  };
+
+  const loadPDFThumbnail = async () => {
+    try {
+      // Check if PDF.js is available
+      if (typeof window.pdfjsLib === 'undefined') {
+        // Load PDF.js from CDN
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.async = true;
+        document.head.appendChild(script);
+        
+        script.onload = () => {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          generatePDFThumbnail();
+        };
+      } else {
+        generatePDFThumbnail();
+      }
+    } catch (err) {
+      console.error('Failed to load PDF thumbnail:', err);
+      setThumbnailError(true);
+    }
+  };
+
+  const generatePDFThumbnail = async () => {
+    try {
+      // Import api client
+      const api = (await import('../../services/api')).default;
+      
+      // Use api client to get the PDF with proper authentication
+      const response = await api.get(`/files/${item.id}/download`, {
+        responseType: 'blob'
+      });
+      
+      // response.data is the blob from axios
+      const arrayBuffer = await response.data.arrayBuffer();
+      
+      const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const page = await pdf.getPage(1);
+      
+      const scale = 0.5;
+      const viewport = page.getViewport({ scale });
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise;
+      
+      setPdfPreview(canvas.toDataURL());
+    } catch (err) {
+      console.error('Failed to generate PDF thumbnail:', err);
+      setThumbnailError(true);
+    }
   };
 
   const handleClick = () => {
@@ -67,6 +199,125 @@ export default function FileCard({
     return `${gb.toFixed(1)} GB`;
   };
 
+  const renderThumbnail = () => {
+    // Folder icon
+    if (isFolder) {
+      return (
+        <div className="relative w-full h-full flex items-center justify-center">
+          <Folder className="w-16 h-16 text-yellow-500" strokeWidth={1.5} />
+        </div>
+      );
+    }
+
+    // Image thumbnail
+    if (isImage && !thumbnailError) {
+      if (imagePreview) {
+        return (
+          <img
+            src={imagePreview}
+            alt={item.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        );
+      }
+      
+      return (
+        <div className="flex flex-col items-center justify-center gap-2">
+          <div className="animate-pulse">
+            <span className="text-3xl">🖼️</span>
+          </div>
+          <span className="text-[8px] text-gray-500">Loading...</span>
+        </div>
+      );
+    }
+
+    // PDF thumbnail
+    if (isPDF) {
+      if (pdfPreview) {
+        return (
+          <img
+            src={pdfPreview}
+            alt={item.name}
+            className="w-full h-full object-cover"
+          />
+        );
+      }
+      
+      if (thumbnailError) {
+        return (
+          <div className="flex flex-col items-center justify-center gap-2">
+            <FileText className="w-12 h-12 text-red-400" strokeWidth={1.5} />
+            <span className="text-[8px] text-gray-500">PDF</span>
+          </div>
+        );
+      }
+
+      return (
+        <div className="flex flex-col items-center justify-center gap-2">
+          <div className="animate-pulse">
+            <FileText className="w-12 h-12 text-blue-400" strokeWidth={1.5} />
+          </div>
+          <span className="text-[8px] text-gray-500">Loading...</span>
+        </div>
+      );
+    }
+
+    // Video thumbnail
+    if (isVideo) {
+      if (videoPreview) {
+        return (
+          <div className="relative w-full h-full">
+            <video
+              src={videoPreview}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+                <div className="w-0 h-0 border-t-4 border-t-transparent border-l-6 border-l-gray-800 border-b-4 border-b-transparent ml-0.5"></div>
+              </div>
+            </div>
+          </div>
+        );
+      }
+      
+      if (thumbnailError) {
+        return (
+          <div className="flex items-center justify-center">
+            <span className="text-3xl">{getFileIcon(item)}</span>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="flex flex-col items-center justify-center gap-2">
+          <div className="animate-pulse">
+            <span className="text-3xl">🎥</span>
+          </div>
+          <span className="text-[8px] text-gray-500">Loading...</span>
+        </div>
+      );
+    }
+
+    // Text file preview (first few lines)
+    if (isText && !thumbnailError) {
+      return (
+        <div className="w-full h-full bg-white p-2 overflow-hidden">
+          <div className="text-[6px] font-mono text-gray-600 leading-tight whitespace-pre-wrap break-all">
+            <TextFilePreview fileId={item.id} />
+          </div>
+        </div>
+      );
+    }
+
+    // Default icon fallback
+    return (
+      <div className="flex items-center justify-center">
+        <span className="text-3xl">{getFileIcon(item)}</span>
+      </div>
+    );
+  };
+
   return (
     <div
       tabIndex={0}
@@ -83,10 +334,8 @@ export default function FileCard({
     >
       {/* Top Right Controls */}
       <div className="absolute top-1 right-1 flex gap-1 z-10">
-        {/* Custom badges in top right */}
         {topRightCustomBadges && topRightCustomBadges(item)}
 
-        {/* Standard badges */}
         {showSharedBadges && item.hasPublicLink && (
           <div className="px-1.5 py-0.5 bg-blue-500 text-white text-[8px] rounded-full flex items-center gap-0.5 shadow-sm">
             <Link2 className="w-2 h-2" />
@@ -101,7 +350,6 @@ export default function FileCard({
           </div>
         )}
 
-        {/* Star button for files - before context menu */}
         {!isFolder && onToggleStar && (
           <button
             onClick={(e) => {
@@ -120,7 +368,6 @@ export default function FileCard({
           </button>
         )}
 
-        {/* Context menu button - always last */}
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -134,10 +381,8 @@ export default function FileCard({
 
       {/* Top Left Badges */}
       <div className="absolute top-1 left-1 flex flex-col gap-1 z-10">
-        {/* Custom badges in top left */}
         {topLeftCustomBadges && topLeftCustomBadges(item)}
         
-        {/* Permission badges */}
         {showPermissionBadge && item.permission && (
           <>
             {item.permission === 'edit' && (
@@ -148,7 +393,7 @@ export default function FileCard({
             )}
 
             {item.permission === 'view' && (
-              <div className="px-1.5 py-0.5 bg-blue-500 text-white text-white text-[8px] rounded-full flex items-center gap-0.5 shadow-sm">
+              <div className="px-1.5 py-0.5 bg-blue-500 text-white text-[8px] rounded-full flex items-center gap-0.5 shadow-sm">
                 <Eye className="w-2 h-2" />
                 <span>View</span>
               </div>
@@ -157,32 +402,9 @@ export default function FileCard({
         )}
       </div>
 
-      {/* Preview/Icon Area */}
-      <div className="aspect-square rounded-md mb-1.5 flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50">
-        {isFolder ? (
-          <div className="relative">
-            <Folder className="w-12 h-12 text-yellow-500" />
-          </div>
-        ) : item.mimeType?.startsWith('image/') ? (
-          <>
-            <img
-              src={`/files/${item.id}/download`}
-              alt={item.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.nextSibling.style.display = 'flex';
-              }}
-            />
-            <span className="hidden text-2xl">
-              {getFileIcon(item)}
-            </span>
-          </>
-        ) : (
-          <span className="text-2xl">
-            {getFileIcon(item)}
-          </span>
-        )}
+      {/* Preview/Thumbnail Area */}
+      <div className="aspect-square rounded-md mb-1.5 flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 to-indigo-50 relative">
+        {renderThumbnail()}
       </div>
 
       {/* File Info */}
@@ -191,7 +413,6 @@ export default function FileCard({
           {item.name}
         </h3>
 
-        {/* Metadata Line */}
         <div className="space-y-0.5">
           {ownerEmail && (
             <p className="text-[10px] text-blue-600 truncate flex items-center gap-0.5" title={`Shared by ${ownerEmail}`}>
@@ -213,7 +434,6 @@ export default function FileCard({
           </p>
         </div>
 
-        {/* Quick Actions - Custom or Default */}
         {showQuickActions && (
           customActions ? (
             customActions(item)
@@ -249,4 +469,32 @@ export default function FileCard({
       </div>
     </div>
   );
+}
+
+// Helper component for text file preview
+function TextFilePreview({ fileId }) {
+  const [preview, setPreview] = useState('Loading...');
+
+  useEffect(() => {
+    const loadPreview = async () => {
+      try {
+        // Import api client dynamically
+        const api = (await import('../../services/api')).default;
+        
+        const response = await api.get(`/files/${fileId}/download`, {
+          responseType: 'text'
+        });
+        
+        const text = response.data;
+        // Show first 200 characters
+        setPreview(text.substring(0, 200) + (text.length > 200 ? '...' : ''));
+      } catch (err) {
+        setPreview('Preview unavailable');
+      }
+    };
+
+    loadPreview();
+  }, [fileId]);
+
+  return <>{preview}</>;
 }
