@@ -1,4 +1,4 @@
-// src/components/layout/Navbar.jsx - FIXED PROFILE PICTURE
+// src/components/layout/Navbar.jsx - SEARCH BAR ALIGNED IN SINGLE ROW
 import { Cloud, Search, LogOut, User, X, Settings, Menu } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -67,9 +67,9 @@ export default function Navbar({ onMenuClick }) {
   return (
     <>
       <nav className="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 shadow-sm">
-        <div className="h-16 px-4 sm:px-6 flex items-center justify-between">
-          {/* Left Section */}
-          <div className="flex items-center space-x-3 sm:space-x-4">
+        <div className="h-16 px-3 sm:px-4 lg:px-6 flex items-center justify-between gap-2 sm:gap-3">
+          {/* Left Section - Menu + Logo */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             {/* Mobile Menu Button */}
             <button
               onClick={onMenuClick}
@@ -81,46 +81,46 @@ export default function Navbar({ onMenuClick }) {
 
             {/* Logo */}
             <div 
-              className="flex items-center space-x-2 cursor-pointer hover:opacity-80 transition" 
+              className="flex items-center gap-1.5 sm:gap-2 cursor-pointer hover:opacity-80 transition" 
               onClick={handleLogoClick}
             >
-              <Cloud className="w-7 h-7 sm:w-8 sm:h-8 text-blue-600" />
-              <span className="text-lg sm:text-xl font-bold text-gray-900 hidden sm:block">
+              <Cloud className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8 text-blue-600 flex-shrink-0" />
+              <span className="text-base sm:text-lg lg:text-xl font-bold text-gray-900 hidden sm:block whitespace-nowrap">
                 Cloud Storage
               </span>
             </div>
           </div>
 
-          {/* Center - Search (Desktop Only) */}
-          <div className="flex-1 max-w-2xl mx-4 hidden md:block">
+          {/* Center - Search Bar (All Screens, Same Row) */}
+          <div className="flex-1 max-w-xl lg:max-w-2xl mx-1 sm:mx-2 lg:mx-4">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
+              <Search className="absolute left-2 sm:left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 sm:w-5 sm:h-5 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Search files..."
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
+                className="w-full pl-8 sm:pl-10 pr-8 sm:pr-10 py-1.5 sm:py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-xs sm:text-sm"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={clearSearch}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
+                  className="absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
                   aria-label="Clear search"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               )}
             </div>
           </div>
 
           {/* Right Section - User Menu */}
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative flex-shrink-0" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center space-x-2 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-100 transition"
+              className="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 lg:px-3 py-2 rounded-lg hover:bg-gray-100 transition"
               aria-label="User menu"
             >
               {profilePictureUrl ? (
@@ -134,11 +134,11 @@ export default function Navbar({ onMenuClick }) {
                   }}
                 />
               ) : (
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                   <User className="w-5 h-5 text-white" />
                 </div>
               )}
-              <span className="text-sm font-medium text-gray-700 hidden sm:block max-w-[120px] truncate">
+              <span className="text-sm font-medium text-gray-700 hidden lg:block max-w-[100px] xl:max-w-[120px] truncate">
                 {user?.fullName || user?.name || 'User'}
               </span>
             </button>
@@ -173,31 +173,6 @@ export default function Navbar({ onMenuClick }) {
                   <span>Logout</span>
                 </button>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile Search Bar */}
-        <div className="md:hidden px-4 pb-3 border-t border-gray-100">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5 pointer-events-none" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Search files..."
-              className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition text-sm"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 transition"
-                aria-label="Clear search"
-              >
-                <X className="w-4 h-4" />
-              </button>
             )}
           </div>
         </div>
