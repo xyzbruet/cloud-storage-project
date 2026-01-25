@@ -1,14 +1,20 @@
-import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink } from 'lucide-react';
+import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../services/api';
 
+// Get backend base URL from environment
+const getBackendBaseUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) {
+    return apiUrl.replace('/api', '');
+  }
+  return 'http://localhost:8080';
+};
+
+const BACKEND_BASE = getBackendBaseUrl();
+
 // PermissionControl Component
-function PermissionControl({ 
-  permission, 
-  onChange, 
-  disabled = false,
-  size = 'default' 
-}) {
+function PermissionControl({ permission, onChange, disabled = false, size = 'default' }) {
   const sizeClasses = {
     small: 'text-xs px-2 py-1',
     default: 'text-sm px-3 py-2',
@@ -70,9 +76,7 @@ function PermissionBadge({ permission, size = 'default' }) {
   const Icon = config.icon;
 
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full font-medium border ${sizeClasses[size]} ${config.bgColor} ${config.textColor} ${config.borderColor}`}
-    >
+    <span className={`inline-flex items-center gap-1 ${sizeClasses[size]} ${config.bgColor} ${config.textColor} rounded-full font-medium border ${config.borderColor}`}>
       <Icon className={iconSizes[size]} />
       {config.label}
     </span>
@@ -81,23 +85,37 @@ function PermissionBadge({ permission, size = 'default' }) {
 
 // Alert Message Component
 function AlertMessage({ type, text, onDismiss }) {
+  const styles = {
+    success: 'bg-green-50 border-green-200 text-green-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+    info: 'bg-blue-50 border-blue-200 text-blue-800'
+  };
+
   return (
-    <div className={`mx-6 mt-4 p-3 rounded-lg flex items-start gap-2 ${
-      type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 
-      type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' : 
-      'bg-blue-50 text-blue-800 border border-blue-200'
-    }`}>
-      <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-      <span className="text-sm flex-1">{text}</span>
+    <div className={`flex items-start gap-3 p-3 rounded-lg border ${styles[type] || styles.info} animate-in fade-in slide-in-from-top-2 duration-200`}>
+      <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+      <span className="flex-1 text-sm font-medium">{text}</span>
       {onDismiss && (
-        <button 
+        <button
           onClick={onDismiss}
-          className="flex-shrink-0 hover:opacity-70 transition"
-          aria-label="Dismiss message"
+          className="flex-shrink-0 hover:opacity-70 transition-opacity"
+          aria-label="Dismiss"
         >
           <X className="w-4 h-4" />
         </button>
       )}
+    </div>
+  );
+}
+
+// Loading Skeleton
+function LoadingSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-10 bg-gray-200 rounded"></div>
+      <div className="h-20 bg-gray-200 rounded"></div>
+      <div className="h-32 bg-gray-200 rounded"></div>
     </div>
   );
 }
@@ -113,7 +131,8 @@ export default function ShareModal({ file, onClose, onShared }) {
   const [message, setMessage] = useState({ type: '', text: '' });
   const [fetchingData, setFetchingData] = useState(true);
   const [linkPermission, setLinkPermission] = useState('view');
-  
+  const [updatingPermissions, setUpdatingPermissions] = useState({});
+
   const emailInputRef = useRef(null);
   const messageTimeoutRef = useRef(null);
 
@@ -133,7 +152,10 @@ export default function ShareModal({ file, onClose, onShared }) {
 
   // Focus email input on mount
   useEffect(() => {
-    emailInputRef.current?.focus();
+    const timer = setTimeout(() => {
+      emailInputRef.current?.focus();
+    }, 100);
+    return () => clearTimeout(timer);
   }, []);
 
   // Handle escape key
@@ -143,78 +165,14 @@ export default function ShareModal({ file, onClose, onShared }) {
         onClose();
       }
     };
-    
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [onClose]);
-
-  const fetchSharedUsers = useCallback(async () => {
-    try {
-      const response = await api.get(`/${itemType}/${file.id}/shares`);
-      
-      const shares = response.data?.data || response.data || [];
-      setSharedUsers(Array.isArray(shares) ? shares : []);
-    } catch (err) {
-      console.error('Failed to fetch shared users:', err);
-      if (err.response?.status === 403) {
-        showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
-      } else if (err.response?.status === 401) {
-        showMessage('error', 'Authentication required. Please log in again.');
-      }
-    }
-  }, [file.id, itemType, itemLabel]);
-
-  const checkExistingLink = useCallback(async () => {
-    try {
-      const response = await api.get(`/${itemType}/${file.id}/share-link`);
-      
-      // Handle multiple possible response structures
-      let shareUrl = null;
-      let existingPermission = 'view';
-      
-      // Check nested data.data structure (ApiResponse wrapper)
-      if (response.data?.data?.shareUrl) {
-        shareUrl = response.data.data.shareUrl;
-        existingPermission = response.data.data.permission || 'view';
-      }
-      // Check direct data.shareUrl
-      else if (response.data?.shareUrl) {
-        shareUrl = response.data.shareUrl;
-        existingPermission = response.data.permission || 'view';
-      }
-      // Check shareLink instead of shareUrl
-      else if (response.data?.data?.shareLink) {
-        shareUrl = response.data.data.shareLink;
-        existingPermission = response.data.data.permission || 'view';
-      }
-      else if (response.data?.shareLink) {
-        shareUrl = response.data.shareLink;
-        existingPermission = response.data.permission || 'view';
-      }
-      
-      if (shareUrl) {
-        setShareLink(shareUrl);
-        setLinkPermission(existingPermission);
-      }
-    } catch (err) {
-      // Silently handle - no existing link is normal
-    }
-  }, [file.id, itemType]);
-
-  useEffect(() => {
-    const loadData = async () => {
-      setFetchingData(true);
-      await Promise.all([fetchSharedUsers(), checkExistingLink()]);
-      setFetchingData(false);
-    };
-    loadData();
-  }, [fetchSharedUsers, checkExistingLink]);
 
   const showMessage = useCallback((type, text) => {
     if (messageTimeoutRef.current) {
       clearTimeout(messageTimeoutRef.current);
     }
-    
     setMessage({ type, text });
     messageTimeoutRef.current = setTimeout(() => {
       setMessage({ type: '', text: '' });
@@ -228,21 +186,84 @@ export default function ShareModal({ file, onClose, onShared }) {
     setMessage({ type: '', text: '' });
   }, []);
 
+  const fetchSharedUsers = useCallback(async () => {
+    try {
+      const response = await api.get(`/${itemType}/${file.id}/shares`);
+      const shares = response.data?.data || response.data || [];
+      setSharedUsers(Array.isArray(shares) ? shares : []);
+    } catch (err) {
+      console.error('Failed to fetch shared users:', err);
+      if (err.response?.status === 403) {
+        showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
+      } else if (err.response?.status === 401) {
+        showMessage('error', 'Authentication required. Please log in again.');
+      }
+    }
+  }, [file.id, itemType, itemLabel, showMessage]);
+
+  const checkExistingLink = useCallback(async () => {
+    try {
+      const response = await api.get(`/${itemType}/${file.id}/share-link`);
+      
+      let shareUrl = null;
+      let existingPermission = 'view';
+      let token = null;
+
+      // Check various response structures
+      if (response.data?.data?.shareUrl) {
+        shareUrl = response.data.data.shareUrl;
+        existingPermission = response.data.data.permission || 'view';
+      } else if (response.data?.shareUrl) {
+        shareUrl = response.data.shareUrl;
+        existingPermission = response.data.permission || 'view';
+      } else if (response.data?.data?.shareLink) {
+        shareUrl = response.data.data.shareLink;
+        existingPermission = response.data.data.permission || 'view';
+      } else if (response.data?.shareLink) {
+        shareUrl = response.data.shareLink;
+        existingPermission = response.data.permission || 'view';
+      } else if (response.data?.data?.token) {
+        token = response.data.data.token;
+        existingPermission = response.data.data.permission || 'view';
+      } else if (response.data?.token) {
+        token = response.data.token;
+        existingPermission = response.data.permission || 'view';
+      }
+
+      if (shareUrl) {
+        setShareLink(shareUrl);
+        setLinkPermission(existingPermission);
+      } else if (token) {
+        const constructedUrl = `${BACKEND_BASE}/s/${token}`;
+        setShareLink(constructedUrl);
+        setLinkPermission(existingPermission);
+      }
+    } catch (err) {
+      console.log('No existing share link found');
+    }
+  }, [file.id, itemType]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setFetchingData(true);
+      await Promise.all([fetchSharedUsers(), checkExistingLink()]);
+      setFetchingData(false);
+    };
+    loadData();
+  }, [fetchSharedUsers, checkExistingLink]);
+
   const validateEmail = (emailStr) => {
     const trimmed = emailStr.trim();
     if (!trimmed) {
       return { valid: false, error: 'Please enter an email address' };
     }
-    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(trimmed)) {
       return { valid: false, error: 'Please enter a valid email address' };
     }
-    
     if (sharedUsers.some(user => user.email?.toLowerCase() === trimmed.toLowerCase())) {
       return { valid: false, error: `This user already has access to the ${itemLabel}` };
     }
-    
     return { valid: true, email: trimmed };
   };
 
@@ -255,7 +276,6 @@ export default function ShareModal({ file, onClose, onShared }) {
 
     try {
       setLoading(true);
-
       await api.post(`/${itemType}/${file.id}/share`, {
         email: validation.email,
         permission,
@@ -267,18 +287,16 @@ export default function ShareModal({ file, onClose, onShared }) {
       setEmail('');
       setPermission('view');
       setSendEmail(false);
-
+      
       showMessage(
         'success',
         `${isFolder ? 'Folder' : 'File'} shared with ${savedEmail}${sendEmail ? ' (email sent)' : ''}`
       );
-
+      
       await fetchSharedUsers();
       if (onShared) onShared();
-
     } catch (err) {
       console.error(`Exception while sharing ${itemLabel}:`, err);
-      
       let errorMessage = `Failed to share ${itemLabel}`;
       
       if (err.response?.data?.message) {
@@ -302,15 +320,14 @@ export default function ShareModal({ file, onClose, onShared }) {
   const generateShareLink = async () => {
     try {
       setLoading(true);
-      
       const response = await api.post(`/${itemType}/${file.id}/share-link`, {
         permission: linkPermission,
         expiresIn: 30
       });
-      
-      // Handle multiple response formats
+
       let shareUrl = null;
-      
+      let token = null;
+
       // Try different possible locations for the share URL
       if (response.data?.data?.shareUrl) {
         shareUrl = response.data.data.shareUrl;
@@ -327,24 +344,22 @@ export default function ShareModal({ file, onClose, onShared }) {
       } else if (response.data?.url) {
         shareUrl = response.data.url;
       }
-      
-     if (shareUrl) {
+
+      if (!shareUrl) {
+        token = response.data?.data?.token || response.data?.token;
+      }
+
+      if (shareUrl) {
         setShareLink(shareUrl);
         showMessage('success', 'Share link generated successfully!');
+      } else if (token) {
+        const constructedUrl = `${BACKEND_BASE}/s/${token}`;
+        setShareLink(constructedUrl);
+        showMessage('success', 'Share link generated successfully!');
       } else {
-        // Fallback: try to construct URL from token if present
-        const token = response.data?.data?.token || response.data?.token;
-        if (token) {
-          // Use backend URL for share links, not frontend origin
-          const BACKEND_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8080';
-          const constructedUrl = `${BACKEND_BASE}/s/${token}`;
-          setShareLink(constructedUrl);
-          showMessage('success', 'Share link generated successfully!');
-        } else {
-          showMessage('error', 'Link generated but URL not found in response. Please try again.');
-        }
+        showMessage('error', 'Link generated but URL not found in response. Please try again.');
       }
-      
+
       if (onShared) onShared();
     } catch (err) {
       console.error('Failed to generate link:', err);
@@ -366,6 +381,7 @@ export default function ShareModal({ file, onClose, onShared }) {
     }
 
     const shareId = userShare.shareId || userShare.id;
+    setUpdatingPermissions(prev => ({ ...prev, [userId]: true }));
 
     try {
       await api.patch(`/${itemType}/${file.id}/shares/${shareId}`, {
@@ -373,18 +389,17 @@ export default function ShareModal({ file, onClose, onShared }) {
       });
 
       showMessage('success', 'Permission updated successfully');
-      
-      setSharedUsers(users => 
-        users.map(user => 
+      setSharedUsers(users =>
+        users.map(user =>
           user.id === userId ? { ...user, permission: newPermission } : user
         )
       );
-      
+
       if (onShared) onShared();
     } catch (err) {
       console.error('Failed to update permission:', err);
-      
       let errorMessage = 'Failed to update permission';
+
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.status === 403) {
@@ -392,9 +407,15 @@ export default function ShareModal({ file, onClose, onShared }) {
       } else if (err.response?.status === 400) {
         errorMessage = 'Invalid request. This share may no longer exist.';
       }
-      
+
       showMessage('error', errorMessage);
       await fetchSharedUsers();
+    } finally {
+      setUpdatingPermissions(prev => {
+        const next = { ...prev };
+        delete next[userId];
+        return next;
+      });
     }
   };
 
@@ -413,16 +434,13 @@ export default function ShareModal({ file, onClose, onShared }) {
 
     try {
       await api.delete(`/${itemType}/${file.id}/shares/${shareId}`);
-
       showMessage('success', `Access removed for ${userEmail}`);
-      
       setSharedUsers(users => users.filter(user => user.id !== userId));
-      
       if (onShared) onShared();
     } catch (err) {
       console.error('Failed to remove access:', err);
-      
       let errorMessage = 'Failed to remove access';
+
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.status === 403) {
@@ -430,7 +448,7 @@ export default function ShareModal({ file, onClose, onShared }) {
       } else if (err.response?.status === 400) {
         errorMessage = 'Invalid request. This share may no longer exist.';
       }
-      
+
       showMessage('error', errorMessage);
       await fetchSharedUsers();
     }
@@ -443,23 +461,20 @@ export default function ShareModal({ file, onClose, onShared }) {
 
     try {
       setLoading(true);
-      
       await api.delete(`/${itemType}/${file.id}/share-link`);
-
       setShareLink('');
       showMessage('success', 'Share link revoked successfully');
-      
       if (onShared) onShared();
     } catch (err) {
       console.error('Failed to revoke link:', err);
-      
       let errorMessage = 'Failed to revoke link';
+
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.status === 403) {
         errorMessage = 'Permission denied.';
       }
-      
+
       showMessage('error', errorMessage);
     } finally {
       setLoading(false);
@@ -478,234 +493,236 @@ export default function ShareModal({ file, onClose, onShared }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+      <div 
+        className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-semibold text-gray-900">
+            <h2 className="text-2xl font-bold text-gray-900 mb-1">
               Share {isFolder ? 'Folder' : 'File'}
             </h2>
-            <p className="text-sm text-gray-600 mt-1 truncate" title={file.name}>
+            <p className="text-sm text-gray-600 truncate" title={file.name}>
               {file.name}
             </p>
           </div>
-          <button 
-            onClick={onClose} 
-            className="p-2 hover:bg-white rounded-lg transition ml-4"
-            aria-label="Close modal"
+          <button
+            onClick={onClose}
+            className="ml-4 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            aria-label="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
 
+        {/* Message Alert */}
         {message.text && (
-          <AlertMessage 
-            type={message.type} 
-            text={message.text} 
-            onDismiss={dismissMessage}
-          />
+          <div className="px-6 pt-4">
+            <AlertMessage
+              type={message.type}
+              text={message.text}
+              onDismiss={dismissMessage}
+            />
+          </div>
         )}
 
+        {/* Content */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {fetchingData ? (
-            <div className="flex flex-col items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
-              <p className="text-sm text-gray-500">Loading sharing options...</p>
-            </div>
+            <LoadingSkeleton />
           ) : (
             <>
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-3">
+              {/* Share with people section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Mail className="w-5 h-5" />
                   Share with people
-                </label>
-                
-                <div className="space-y-3">
-                  <div className="flex gap-2">
-                    <input
-                      ref={emailInputRef}
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter email address"
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter' && !loading) {
-                          shareWithUser();
-                        }
-                      }}
-                      disabled={loading}
-                      aria-label="Email address"
-                    />
-                    <PermissionControl
-                      permission={permission}
-                      onChange={setPermission}
-                      size="default"
-                      disabled={loading}
-                    />
-                  </div>
+                </h3>
 
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      id="sendEmail"
-                      checked={sendEmail}
-                      onChange={(e) => setSendEmail(e.target.checked)}
-                      className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
-                      disabled={loading}
-                    />
-                    <label htmlFor="sendEmail" className="text-sm text-gray-700 cursor-pointer">
-                      Send email notification
-                    </label>
-                  </div>
-
-                  <button
-                    onClick={shareWithUser}
-                    disabled={loading || !email.trim()}
-                    className="w-full px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-medium shadow-sm"
-                  >
-                    <Mail className="w-4 h-4" />
-                    {loading ? 'Sharing...' : `Share ${isFolder ? 'Folder' : 'File'}`}
-                  </button>
+                <div className="flex gap-2">
+                  <input
+                    ref={emailInputRef}
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter email address"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !loading) {
+                        shareWithUser();
+                      }
+                    }}
+                    disabled={loading}
+                    aria-label="Email address"
+                  />
+                  <PermissionControl
+                    permission={permission}
+                    onChange={setPermission}
+                    disabled={loading}
+                  />
                 </div>
 
-                {sharedUsers.length > 0 && (
-                  <div className="mt-5 space-y-2">
-                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                      People with access ({sharedUsers.length})
-                    </p>
-                    <div className="space-y-2 max-h-64 overflow-y-auto border border-gray-200 rounded-lg">
-                      {sharedUsers.map((user) => (
-                        <div 
-                          key={user.id} 
-                          className="flex items-center justify-between p-3 hover:bg-gray-50 transition first:rounded-t-lg last:rounded-b-lg"
-                        >
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold text-sm flex-shrink-0 shadow-sm">
-                              {user.email?.[0]?.toUpperCase() || '?'}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 truncate">
-                                {user.email}
-                              </p>
-                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                <PermissionBadge permission={user.permission} size="small" />
-                                {user.sharedAt && (
-                                  <>
-                                    <span className="text-gray-400">•</span>
-                                    <span>Shared {new Date(user.sharedAt).toLocaleDateString()}</span>
-                                  </>
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 ml-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="sendEmailNotif"
+                    checked={sendEmail}
+                    onChange={(e) => setSendEmail(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-2 focus:ring-blue-500"
+                    disabled={loading}
+                  />
+                  <label htmlFor="sendEmailNotif" className="text-sm text-gray-700 cursor-pointer">
+                    Send email notification
+                  </label>
+                </div>
+
+                <button
+                  onClick={shareWithUser}
+                  disabled={loading || !email.trim()}
+                  className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {loading ? 'Sharing...' : `Share ${isFolder ? 'Folder' : 'File'}`}
+                </button>
+              </div>
+
+              {/* Shared users list */}
+              {sharedUsers.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-700">
+                    People with access ({sharedUsers.length})
+                  </h4>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {sharedUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      >
+                        <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center font-semibold flex-shrink-0">
+                          {user.email?.[0]?.toUpperCase() || '?'}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {user.email}
+                          </p>
+                          {user.sharedAt && (
+                            <p className="text-xs text-gray-500">
+                              Shared {new Date(user.sharedAt).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {updatingPermissions[user.id] ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+                          ) : (
                             <PermissionControl
                               permission={user.permission}
                               onChange={(perm) => updateUserPermission(user.id, perm)}
                               size="small"
                             />
-                            <button
-                              onClick={() => removeUserAccess(user.id, user.email)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
-                              title="Remove access"
-                              aria-label={`Remove access for ${user.email}`}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
+                          )}
+                          <button
+                            onClick={() => removeUserAccess(user.id, user.email)}
+                            className="p-1.5 text-red-600 hover:bg-red-50 rounded transition"
+                            title="Remove access"
+                            aria-label={`Remove access for ${user.email}`}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
+              {/* Divider */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-3 bg-white text-gray-500 font-medium">Or</span>
+                  <span className="px-2 bg-white text-gray-500">Or</span>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-3">
+              {/* Share link section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <Link2 className="w-5 h-5" />
                   Get shareable link
-                </label>
-                
+                </h3>
+
                 {!shareLink ? (
                   <div className="space-y-3">
-                    <div className="flex gap-2 items-center">
-                      <label className="text-sm text-gray-700 font-medium">Link permission:</label>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Link permission:
+                      </label>
                       <PermissionControl
                         permission={linkPermission}
                         onChange={setLinkPermission}
-                        size="small"
                         disabled={loading}
                       />
                     </div>
                     <button
                       onClick={generateShareLink}
                       disabled={loading}
-                      className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition text-gray-600 hover:text-blue-600 disabled:opacity-50 flex items-center justify-center gap-2 font-medium"
+                      className="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      <Link2 className="w-5 h-5" />
+                      {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                       {loading ? 'Generating...' : 'Generate shareable link'}
                     </button>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
-                      <div className="flex items-start gap-2 mb-3">
-                        <Link2 className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <p className="text-xs text-blue-800 font-medium">
-                            Anyone with this link can {linkPermission === 'edit' ? 'edit' : 'view'} the {isFolder ? 'folder' : 'file'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          value={shareLink}
-                          readOnly
-                          className="flex-1 px-3 py-2 bg-white border border-blue-300 rounded-lg text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                          onClick={(e) => e.target.select()}
-                        />
-                        <button
-                          onClick={copyToClipboard}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition flex items-center gap-2 shadow-sm flex-shrink-0"
-                          title="Copy link to clipboard"
-                        >
-                          {copied ? (
-                            <>
-                              <Check className="w-4 h-4" />
-                              <span className="text-sm font-medium hidden sm:inline">Copied!</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-4 h-4" />
-                              <span className="text-sm font-medium hidden sm:inline">Copy</span>
-                            </>
-                          )}
-                        </button>
-                        <a
-                          href={shareLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 rounded-lg transition flex items-center justify-center shadow-sm flex-shrink-0"
-                          title="Open link in new tab"
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </a>
-                      </div>
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-sm text-blue-800">
+                        Anyone with this link can {linkPermission === 'edit' ? 'edit' : 'view'} the {isFolder ? 'folder' : 'file'}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={shareLink}
+                        readOnly
+                        className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-lg text-sm font-mono"
+                        onClick={(e) => e.target.select()}
+                      />
+                      <button
+                        onClick={copyToClipboard}
+                        className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
+                      >
+                        {copied ? (
+                          <>
+                            <Check className="w-4 h-4" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-4 h-4" />
+                            Copy
+                          </>
+                        )}
+                      </button>
+                      <a
+                        href={shareLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 bg-white border border-blue-300 hover:bg-blue-50 text-blue-600 rounded-lg transition flex items-center justify-center shadow-sm flex-shrink-0"
+                        title="Open link in new tab"
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                      </a>
                     </div>
                     <button
                       onClick={revokeShareLink}
                       disabled={loading}
-                      className="w-full px-4 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition disabled:opacity-50 flex items-center justify-center gap-2 text-sm font-medium border border-red-200"
+                      className="w-full px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
+                      {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                       <Trash2 className="w-4 h-4" />
                       Revoke Link
                     </button>
@@ -716,10 +733,11 @@ export default function ShareModal({ file, onClose, onShared }) {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 p-6 border-t bg-gray-50">
+        {/* Footer */}
+        <div className="flex justify-end p-6 border-t border-gray-200 bg-gray-50">
           <button
             onClick={onClose}
-            className="px-6 py-2 text-gray-700 hover:bg-gray-200 rounded-lg transition font-medium"
+            className="px-6 py-2 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-medium transition-colors"
           >
             Done
           </button>
