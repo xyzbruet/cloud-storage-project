@@ -8,6 +8,10 @@ const getBackendBaseUrl = () => {
   if (apiUrl) {
     return apiUrl.replace('/api', '');
   }
+  // Fallback to window.location.origin in production
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    return window.location.origin;
+  }
   return 'http://localhost:8080';
 };
 
