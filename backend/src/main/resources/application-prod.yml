@@ -85,6 +85,7 @@ google:
 # APPLICATION (Production URLs)
 # ===============================
 app:
+  url: ${APP_URL:https://cloud-storage-project-tau.vercel.app}
   base-url: ${APP_BASE_URL}
   frontend-url: ${APP_FRONTEND_URL}
   upload:
