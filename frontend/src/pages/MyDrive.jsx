@@ -765,12 +765,14 @@ export default function MyDrive() {
       )}
 
       {shareFile && (
-        <ShareModal
-          file={shareFile}
-          onClose={() => setShareFile(null)}
-          onShared={fetchData}
-        />
-      )}
+  <ShareModal
+    file={shareFile}
+    onClose={() => setShareFile(null)}
+    onShared={fetchData}
+    publicLink={shareFile.publicLink}
+    hasPublicLink={shareFile.hasPublicLink}
+  />
+)}
 
      
       {/* File Preview Modal */}
