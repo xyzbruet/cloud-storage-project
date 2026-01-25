@@ -5,16 +5,21 @@ import api from '../../services/api';
 // Get backend base URL from environment
 const getBackendBaseUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL;
+  
+  // If API URL is set, use it (remove /api suffix)
   if (apiUrl) {
     return apiUrl.replace('/api', '');
   }
-  // Fallback to window.location.origin in production
-  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+  
+  // Always use window.location.origin in browser
+  // This ensures the frontend domain is used for the share link
+  if (typeof window !== 'undefined') {
     return window.location.origin;
   }
+  
+  // Fallback for SSR/non-browser environments
   return 'http://localhost:8080';
 };
-
 const BACKEND_BASE = getBackendBaseUrl();
 
 // PermissionControl Component
