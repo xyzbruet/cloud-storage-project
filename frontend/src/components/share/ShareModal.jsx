@@ -1,26 +1,26 @@
-import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink, Loader2 } from 'lucide-react';
+
+            import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../services/api';
 
-// Get backend base URL from environment
-const getBackendBaseUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL;
-  
-  // If API URL is set, use it (remove /api suffix)
-  if (apiUrl) {
-    return apiUrl.replace('/api', '');
+// ✅ FIXED: Get frontend URL from environment or window.location.origin
+const getFrontendUrl = () => {
+  // Priority 1: Use environment variable if set
+  const envUrl = import.meta.env.VITE_FRONTEND_URL;
+  if (envUrl) {
+    return envUrl;
   }
   
-  // Always use window.location.origin in browser
-  // This ensures the frontend domain is used for the share link
+  // Priority 2: Use window.location.origin (current domain)
   if (typeof window !== 'undefined') {
     return window.location.origin;
   }
   
-  // Fallback for SSR/non-browser environments
-  return 'http://localhost:8080';
+  // Fallback (should rarely happen)
+  return 'http://localhost:3000';
 };
-const BACKEND_BASE = getBackendBaseUrl();
+
+const FRONTEND_URL = getFrontendUrl();
 
 // PermissionControl Component
 function PermissionControl({ permission, onChange, disabled = false, size = 'default' }) {
@@ -243,7 +243,8 @@ export default function ShareModal({ file, onClose, onShared }) {
         setShareLink(shareUrl);
         setLinkPermission(existingPermission);
       } else if (token) {
-        const constructedUrl = `${BACKEND_BASE}/s/${token}`;
+        // ✅ FIXED: Use FRONTEND_URL instead of hardcoded backend URL
+        const constructedUrl = `${FRONTEND_URL}/s/${token}`;
         setShareLink(constructedUrl);
         setLinkPermission(existingPermission);
       }
@@ -362,7 +363,8 @@ export default function ShareModal({ file, onClose, onShared }) {
         setShareLink(shareUrl);
         showMessage('success', 'Share link generated successfully!');
       } else if (token) {
-        const constructedUrl = `${BACKEND_BASE}/s/${token}`;
+        // ✅ FIXED: Use FRONTEND_URL instead of hardcoded backend URL
+        const constructedUrl = `${FRONTEND_URL}/s/${token}`;
         setShareLink(constructedUrl);
         showMessage('success', 'Share link generated successfully!');
       } else {
