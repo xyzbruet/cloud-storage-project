@@ -2,24 +2,7 @@ import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLi
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../services/api';
 
-// ✅ FIXED: Get frontend URL from environment or window.location.origin
-const getFrontendUrl = () => {
-  // Priority 1: Use environment variable if set
-  const envUrl = import.meta.env.VITE_FRONTEND_URL;
-  if (envUrl) {
-    return envUrl;
-  }
-  
-  // Priority 2: Use window.location.origin (current domain)
-  if (typeof window !== 'undefined') {
-    return window.location.origin;
-  }
-  
-  // Fallback (should rarely happen)
-  return 'http://localhost:3000';
-};
-
-const FRONTEND_URL = getFrontendUrl();
+const FRONTEND_URL = import.meta.env.VITE_FRONTEND_URL || window.location.origin;
 
 // PermissionControl Component
 function PermissionControl({ permission, onChange, disabled = false, size = 'default' }) {
@@ -128,11 +111,11 @@ function LoadingSkeleton() {
   );
 }
 
-export default function ShareModal({ file, onClose, onShared }) {
+export default function ShareModal({ file, onClose, onShared, publicLink, hasPublicLink }) {
   const [email, setEmail] = useState('');
   const [permission, setPermission] = useState('view');
   const [loading, setLoading] = useState(false);
-  const [shareLink, setShareLink] = useState('');
+  const [shareLink, setShareLink] = useState(publicLink || '');
   const [copied, setCopied] = useState(false);
   const [sharedUsers, setSharedUsers] = useState([]);
   const [sendEmail, setSendEmail] = useState(false);
@@ -211,6 +194,13 @@ export default function ShareModal({ file, onClose, onShared }) {
 
   const checkExistingLink = useCallback(async () => {
     try {
+      // ✅ If we already have publicLink from parent, use it directly
+      if (publicLink) {
+        setShareLink(publicLink);
+        setLinkPermission('view');
+        return;
+      }
+
       const response = await api.get(`/${itemType}/${file.id}/share-link`);
       
       let shareUrl = null;
@@ -236,11 +226,10 @@ export default function ShareModal({ file, onClose, onShared }) {
         setShareLink(shareUrl);
         setLinkPermission(existingPermission);
       }
-      // If no URL found, that means no existing link - don't construct one
     } catch (err) {
       console.log('No existing share link found');
     }
-  }, [file.id, itemType]);
+  }, [file.id, itemType, publicLink]);
 
   useEffect(() => {
     const loadData = async () => {

@@ -1265,8 +1265,13 @@ export function SharedByMe() {
       )}
 
       {showShareModal && selectedFile && (
-        <ShareModal file={selectedFile} onClose={closeShareModal} />
-      )}
+  <ShareModal 
+    file={selectedFile} 
+    onClose={closeShareModal}
+    publicLink={selectedFile.publicLink}  // ✅ Pass the publicLink
+    hasPublicLink={selectedFile.hasPublicLink}  // ✅ Pass this too
+  />
+)}
 
       {previewFile && !previewFile.isFolder && (
         <FilePreviewModal
