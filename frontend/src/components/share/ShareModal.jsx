@@ -328,15 +328,16 @@ export default function ShareModal({ file, onClose, onShared }) {
         shareUrl = response.data.url;
       }
       
-      if (shareUrl) {
+     if (shareUrl) {
         setShareLink(shareUrl);
         showMessage('success', 'Share link generated successfully!');
       } else {
         // Fallback: try to construct URL from token if present
         const token = response.data?.data?.token || response.data?.token;
         if (token) {
-          const baseUrl = window.location.origin;
-          const constructedUrl = `${baseUrl}/s/${token}`;
+          // Use backend URL for share links, not frontend origin
+          const BACKEND_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8080';
+          const constructedUrl = `${BACKEND_BASE}/s/${token}`;
           setShareLink(constructedUrl);
           showMessage('success', 'Share link generated successfully!');
         } else {
