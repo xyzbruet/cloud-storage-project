@@ -773,9 +773,7 @@ export default function MyDrive() {
     hasPublicLink={shareFile.hasPublicLink}
   />
 )}
-
-     
-      {/* File Preview Modal */}
+   {/* File Preview Modal */}
       {previewFile && (
         <FilePreviewModal
           file={previewFile}
