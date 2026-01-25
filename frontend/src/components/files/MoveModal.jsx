@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Folder, ChevronRight, Home, FolderOpen, AlertCircle, Check } from 'lucide-react';
 import folderService from '../../services/folderService';
+import api from '../../services/api';
 
 export default function MoveModal({ items, onClose, onMove }) {
   const [folders, setFolders] = useState([]);
@@ -74,45 +75,18 @@ export default function MoveModal({ items, onClose, onMove }) {
       for (const item of itemsArray) {
         try {
           const isFolder = item.isFolder || item.mimeType === 'folder';
-          const token = localStorage.getItem('token') || localStorage.getItem('authToken');
           
           if (isFolder) {
             // Use PATCH for folders - update with new parentId
-            const response = await fetch(`/api/folders/${item.id}`, {
-              method: 'PATCH',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({
-                parentId: currentFolder
-              })
+            await api.patch(`/folders/${item.id}`, {
+              parentId: currentFolder
             });
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('Folder move error:', errorText);
-              throw new Error('Move failed');
-            }
           } else {
             // Use PUT for files - update with new folderId
-            const response = await fetch(`/api/files/${item.id}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({
-                folderId: currentFolder,
-                name: item.name // Keep the name the same
-              })
+            await api.put(`/files/${item.id}`, {
+              folderId: currentFolder,
+              name: item.name // Keep the name the same
             });
-
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error('File move error:', errorText);
-              throw new Error('Move failed');
-            }
           }
           
           successCount++;

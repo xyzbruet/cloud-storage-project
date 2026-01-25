@@ -2,6 +2,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { Folder, Eye, AlertCircle, ArrowLeft, Lock, FileText, Download, X, ChevronRight, Home, Image, Film, Music, File } from 'lucide-react';
 
+// Backend base URL (without /api for public share endpoints)
+const BACKEND_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8080';
+
 // Utility functions
 const formatFileSize = (bytes) => {
   if (!bytes) return 'Unknown size';
@@ -69,27 +72,22 @@ export default function SharedFolderView() {
   const [currentPath, setCurrentPath] = useState([]);
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
 
-  // Fetch shared folder with useCallback to avoid dependency warnings
+  // Fetch shared folder
   const fetchSharedFolder = useCallback(async (subfolderId = null) => {
     try {
       setLoading(true);
       
       console.log('🔗 Fetching shared folder with token:', token, 'subfolder:', subfolderId);
       
-      // Build URL with subfolder support
-      let url = `/api/folders/shared-link/${token}`;
+      // ✅ Use BACKEND_BASE with the universal endpoint
+      let url = `${BACKEND_BASE}/s/${token}`;
       if (subfolderId) {
-        url += `?subfolderId=${subfolderId}`;
+        url += `/folder/${subfolderId}`;
       }
       
       console.log('🌐 Fetching URL:', url);
       
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await fetch(url);
       
       console.log('📡 Response status:', response.status);
       
@@ -108,8 +106,6 @@ export default function SharedFolderView() {
       
       const data = await response.json();
       console.log('📦 Received data:', data);
-      console.log('📂 Files:', data.data?.files || data.files);
-      console.log('📁 Subfolders:', data.data?.subfolders || data.subfolders);
       
       const folderData = data.data || data;
       setFolder(folderData);
@@ -135,7 +131,7 @@ export default function SharedFolderView() {
     }
   }, [token, fetchSharedFolder]);
 
-  // Cleanup preview URL on unmount or when it changes
+  // Cleanup preview URL
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -144,7 +140,7 @@ export default function SharedFolderView() {
     };
   }, [previewUrl]);
 
-  // Handle ESC key to close preview
+  // Handle ESC key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && previewFile) {
@@ -161,13 +157,11 @@ export default function SharedFolderView() {
       setDownloadingFiles(prev => new Set(prev).add(fileId));
       console.log('⬇️ Downloading file:', fileId, 'with token:', token);
       
-      // Pass token as query parameter for file downloads
-      const url = `/api/files/${fileId}/download?shareToken=${encodeURIComponent(token)}`;
+      // ✅ Use BACKEND_BASE for download endpoint
+      const url = `${BACKEND_BASE}/s/${token}/download?fileId=${fileId}`;
       
       console.log('🔄 Downloading from:', url);
-      const response = await fetch(url, {
-        method: 'GET'
-      });
+      const response = await fetch(url);
       
       if (!response.ok) {
         const errorText = await response.text();
@@ -211,8 +205,8 @@ export default function SharedFolderView() {
         return;
       }
       
-      // Pass token as query parameter for preview
-      const url = `/api/files/${file.id}/download?shareToken=${encodeURIComponent(token)}`;
+      // ✅ Use BACKEND_BASE for preview endpoint
+      const url = `${BACKEND_BASE}/s/${token}/download?fileId=${file.id}`;
       
       console.log('🔄 Loading preview from:', url);
       const response = await fetch(url);
@@ -250,7 +244,6 @@ export default function SharedFolderView() {
 
   const handleBreadcrumbClick = async (index) => {
     if (index === -1) {
-      // Go to root
       setCurrentPath([]);
       await fetchSharedFolder(null);
     } else {
@@ -315,7 +308,6 @@ export default function SharedFolderView() {
           <button
             onClick={() => navigate('/login')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition mb-4"
-            aria-label="Back to Login"
           >
             <ArrowLeft className="w-4 h-4" />
             <span className="text-sm font-medium">Back to Login</span>
@@ -368,7 +360,6 @@ export default function SharedFolderView() {
                 <button
                   onClick={() => handleBreadcrumbClick(-1)}
                   className="flex items-center gap-1 text-blue-600 hover:text-blue-700 transition flex-shrink-0"
-                  aria-label="Go to root folder"
                 >
                   <Home className="w-4 h-4" />
                   <span>Root</span>
@@ -409,7 +400,6 @@ export default function SharedFolderView() {
                           key={subfolder.id}
                           onClick={() => handleSubfolderClick(subfolder)}
                           className="bg-gray-50 hover:bg-gray-100 rounded-lg p-4 transition cursor-pointer border border-gray-200 text-left focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          aria-label={`Open folder ${subfolder.name}`}
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -469,8 +459,7 @@ export default function SharedFolderView() {
                               {canPreviewFile(file) && (
                                 <button
                                   onClick={() => previewFileHandler(file)}
-                                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm font-medium flex items-center gap-1 focus:outline-none focus:ring-2 focus:ring-gray-400"
-                                  aria-label={`Preview ${file.name}`}
+                                  className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm font-medium flex items-center gap-1"
                                 >
                                   <Eye className="w-4 h-4" />
                                   <span className="hidden sm:inline">Preview</span>
@@ -479,8 +468,7 @@ export default function SharedFolderView() {
                               <button
                                 onClick={() => downloadFile(file.id, file.name)}
                                 disabled={isDownloading}
-                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-sm font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                aria-label={`Download ${file.name}`}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition text-sm font-medium flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {isDownloading ? (
                                   <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
@@ -524,7 +512,7 @@ export default function SharedFolderView() {
             Want to share folders like this?{' '}
             <button
               onClick={() => navigate('/register')}
-              className="text-blue-600 hover:text-blue-700 font-medium focus:outline-none focus:underline"
+              className="text-blue-600 hover:text-blue-700 font-medium"
             >
               Create a free account
             </button>
@@ -537,18 +525,14 @@ export default function SharedFolderView() {
         <div 
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={closePreview}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="preview-title"
         >
           <div 
             className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-4 border-b">
               <div className="flex-1 min-w-0">
-                <h3 id="preview-title" className="text-lg font-semibold text-gray-900 truncate">
+                <h3 className="text-lg font-semibold text-gray-900 truncate">
                   {previewFile.name}
                 </h3>
                 <p className="text-sm text-gray-500">
@@ -557,14 +541,12 @@ export default function SharedFolderView() {
               </div>
               <button
                 onClick={closePreview}
-                className="ml-4 p-2 hover:bg-gray-100 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-gray-400"
-                aria-label="Close preview"
+                className="ml-4 p-2 hover:bg-gray-100 rounded-lg transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="flex-1 overflow-auto p-4 bg-gray-50">
               {previewUrl ? (
                 <div className="flex items-center justify-center min-h-full">
@@ -607,7 +589,7 @@ export default function SharedFolderView() {
                           closePreview();
                           downloadFile(previewFile.id, previewFile.name);
                         }}
-                        className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
                       >
                         Download File
                       </button>
@@ -624,11 +606,10 @@ export default function SharedFolderView() {
               )}
             </div>
 
-            {/* Modal Footer */}
             <div className="border-t p-4 flex justify-end gap-2 bg-gray-50">
               <button
                 onClick={closePreview}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-medium focus:outline-none focus:ring-2 focus:ring-gray-400"
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-medium"
               >
                 Close
               </button>
@@ -637,7 +618,7 @@ export default function SharedFolderView() {
                   closePreview();
                   downloadFile(previewFile.id, previewFile.name);
                 }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium flex items-center gap-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Download

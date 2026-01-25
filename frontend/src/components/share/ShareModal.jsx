@@ -1,6 +1,6 @@
 import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
-import api from '../../services/api'; // Import your API client
+import api from '../../services/api';
 
 // PermissionControl Component
 function PermissionControl({ 
@@ -149,32 +149,55 @@ export default function ShareModal({ file, onClose, onShared }) {
   }, [onClose]);
 
   const fetchSharedUsers = useCallback(async () => {
-  try {
-    const response = await api.get(`/${itemType}/${file.id}/shares`);
-    
-    // ✅ CORRECT - Extract the data array properly
-    const shares = response.data?.data || response.data || [];
-    setSharedUsers(Array.isArray(shares) ? shares : []);
-  } catch (err) {
-    console.error('Failed to fetch shared users:', err);
-    if (err.response?.status === 403) {
-      showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
-    } else if (err.response?.status === 401) {
-      showMessage('error', 'Authentication required. Please log in again.');
+    try {
+      const response = await api.get(`/${itemType}/${file.id}/shares`);
+      
+      const shares = response.data?.data || response.data || [];
+      setSharedUsers(Array.isArray(shares) ? shares : []);
+    } catch (err) {
+      console.error('Failed to fetch shared users:', err);
+      if (err.response?.status === 403) {
+        showMessage('error', `You do not have permission to view shares for this ${itemLabel}`);
+      } else if (err.response?.status === 401) {
+        showMessage('error', 'Authentication required. Please log in again.');
+      }
     }
-  }
-}, [file.id, itemType, itemLabel]);
+  }, [file.id, itemType, itemLabel]);
 
   const checkExistingLink = useCallback(async () => {
     try {
       const response = await api.get(`/${itemType}/${file.id}/share-link`);
       
-      if (response.data?.shareUrl) {
-        setShareLink(response.data.shareUrl);
-        setLinkPermission(response.data.permission || 'view');
+      // Handle multiple possible response structures
+      let shareUrl = null;
+      let existingPermission = 'view';
+      
+      // Check nested data.data structure (ApiResponse wrapper)
+      if (response.data?.data?.shareUrl) {
+        shareUrl = response.data.data.shareUrl;
+        existingPermission = response.data.data.permission || 'view';
+      }
+      // Check direct data.shareUrl
+      else if (response.data?.shareUrl) {
+        shareUrl = response.data.shareUrl;
+        existingPermission = response.data.permission || 'view';
+      }
+      // Check shareLink instead of shareUrl
+      else if (response.data?.data?.shareLink) {
+        shareUrl = response.data.data.shareLink;
+        existingPermission = response.data.data.permission || 'view';
+      }
+      else if (response.data?.shareLink) {
+        shareUrl = response.data.shareLink;
+        existingPermission = response.data.permission || 'view';
+      }
+      
+      if (shareUrl) {
+        setShareLink(shareUrl);
+        setLinkPermission(existingPermission);
       }
     } catch (err) {
-      console.log('No existing share link');
+      // Silently handle - no existing link is normal
     }
   }, [file.id, itemType]);
 
@@ -284,13 +307,42 @@ export default function ShareModal({ file, onClose, onShared }) {
         permission: linkPermission,
         expiresIn: 30
       });
-
-      console.log('✅ Share link response:', response);
       
-      const shareUrl = response.data?.shareUrl || response.shareUrl;
-      setShareLink(shareUrl);
+      // Handle multiple response formats
+      let shareUrl = null;
       
-      showMessage('success', 'Share link generated successfully!');
+      // Try different possible locations for the share URL
+      if (response.data?.data?.shareUrl) {
+        shareUrl = response.data.data.shareUrl;
+      } else if (response.data?.shareUrl) {
+        shareUrl = response.data.shareUrl;
+      } else if (response.shareUrl) {
+        shareUrl = response.shareUrl;
+      } else if (response.data?.data?.shareLink) {
+        shareUrl = response.data.data.shareLink;
+      } else if (response.data?.shareLink) {
+        shareUrl = response.data.shareLink;
+      } else if (response.data?.data?.url) {
+        shareUrl = response.data.data.url;
+      } else if (response.data?.url) {
+        shareUrl = response.data.url;
+      }
+      
+      if (shareUrl) {
+        setShareLink(shareUrl);
+        showMessage('success', 'Share link generated successfully!');
+      } else {
+        // Fallback: try to construct URL from token if present
+        const token = response.data?.data?.token || response.data?.token;
+        if (token) {
+          const baseUrl = window.location.origin;
+          const constructedUrl = `${baseUrl}/s/${token}`;
+          setShareLink(constructedUrl);
+          showMessage('success', 'Share link generated successfully!');
+        } else {
+          showMessage('error', 'Link generated but URL not found in response. Please try again.');
+        }
+      }
       
       if (onShared) onShared();
     } catch (err) {
@@ -308,7 +360,6 @@ export default function ShareModal({ file, onClose, onShared }) {
       return;
     }
 
-    // Don't make API call if permission is already the same
     if (userShare.permission === newPermission) {
       return;
     }

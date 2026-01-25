@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Search, Download, Star, ArrowLeft, MoreVertical, Share2 } from 'lucide-react';
+import api from '../services/api';
 import FilePreviewModal from '../components/files/FilePreview';
 import ShareModal from '../components/share/ShareModal';
 import FileContextMenu from '../components/common/FileContextMenu';
@@ -22,13 +23,6 @@ export default function SearchResults() {
   const showToast = (type, message) => {
     // Implement your toast notification here
     console.log(`${type}: ${message}`);
-  };
-
-  const getAuthToken = () => {
-    return localStorage.getItem('token') || 
-           localStorage.getItem('authToken') || 
-           sessionStorage.getItem('token') || 
-           sessionStorage.getItem('authToken');
   };
 
   // Use the reusable hook for file operations
@@ -58,18 +52,9 @@ export default function SearchResults() {
     setError(null);
     
     try {
-      const token = getAuthToken();
-      const headers = token ? {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      } : {};
-
-      const response = await fetch('/api/files', { headers });
+      const response = await api.get('/files');
       
-      if (!response.ok) throw new Error('Failed to fetch files');
-      
-      const data = await response.json();
-      const files = Array.isArray(data.data) ? data.data : [];
+      const files = Array.isArray(response.data?.data) ? response.data.data : [];
       
       const searchLower = searchQuery.toLowerCase();
       const filtered = files.filter(file => 
@@ -80,7 +65,7 @@ export default function SearchResults() {
       setResults(filtered);
     } catch (err) {
       console.error('Search failed:', err);
-      setError(err.message);
+      setError(err.message || 'Failed to fetch files');
     } finally {
       setLoading(false);
     }
@@ -220,7 +205,7 @@ export default function SearchResults() {
                 <div className="aspect-square bg-gradient-to-br from-green-50 to-blue-50 rounded-md mb-1.5 flex items-center justify-center overflow-hidden">
                   {file.mimeType?.startsWith('image/') ? (
                     <img
-                      src={`/api/files/${file.id}/download`}
+                      src={`${api.defaults.baseURL}/files/${file.id}/download`}
                       alt={file.name}
                       className="w-full h-full object-cover"
                       onError={(e) => {
