@@ -44,19 +44,17 @@ public class ShareService {
     @Value("${app.url:https://cloud-storage-project-tau.vercel.app}")
     private String appUrl;
 
-    @Value("${app.frontend-url:}")
+    @Value("${app.frontend-url:https://cloud-storage-project-tau.vercel.app}")
     private String frontendUrl;
 
     private String getFrontendUrl() {
-        // ✅ PRIORITY 1: Check if frontendUrl is set and not empty
-        if (frontendUrl != null && !frontendUrl.trim().isEmpty()) {
-            log.info("✅ Using frontend URL from env: {}", frontendUrl);
-            return frontendUrl.trim();
+        // ✅ Always use frontend URL
+        if (frontendUrl == null || frontendUrl.trim().isEmpty() || frontendUrl.equals("${app.frontend-url}")) {
+            // Fallback if not set
+            return appUrl;
         }
-        
-        // ✅ PRIORITY 2: Fall back to appUrl
-        log.warn("⚠️ APP_FRONTEND_URL env var not set, using APP_URL: {}", appUrl);
-        return appUrl;
+        log.info("✅ Using frontend URL: {}", frontendUrl);
+        return frontendUrl.trim();
     }
     
     @PostConstruct
