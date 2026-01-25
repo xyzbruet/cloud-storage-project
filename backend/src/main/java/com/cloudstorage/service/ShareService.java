@@ -40,7 +40,7 @@ public class ShareService {
     private final UserRepository userRepository;
     private final EmailService emailService;
 
-    @Value("${app.url:http://localhost:3000}")
+    @Value("${app.url:https://cloud-storage-project-tau.vercel.app}")
     private String appUrl;
 
     private User getCurrentUser() {
