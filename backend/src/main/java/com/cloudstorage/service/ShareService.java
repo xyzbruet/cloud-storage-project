@@ -43,6 +43,16 @@ public class ShareService {
     @Value("${app.url:https://cloud-storage-project-tau.vercel.app}")
     private String appUrl;
 
+    @Value("${app.frontend.url:}")
+    private String frontendUrl;
+
+    private String getFrontendUrl() {
+        if (frontendUrl != null && !frontendUrl.isEmpty()) {
+            return frontendUrl;
+        }
+        return appUrl;
+    }
+
     private User getCurrentUser() {
         String email = org.springframework.security.core.context.SecurityContextHolder
                 .getContext()
@@ -106,7 +116,7 @@ public class ShareService {
         if (Boolean.TRUE.equals(request.getSendEmail())) {
             log.info("EMAIL CONDITION PASSED → Sending email to {}", shareWithUser.getEmail());
 
-            String downloadLink = appUrl + "/shared-with-me";
+            String downloadLink = getFrontendUrl() + "/shared-with-me";
             
             emailService.sendFileShareEmail(
                     shareWithUser.getEmail(),           // recipient email
@@ -174,7 +184,7 @@ public class ShareService {
         for (FileShare share : existingShares) {
             if (share.getShareToken() != null && share.getSharedWith() == null) {
                 // Public share link already exists
-                String shareUrl = appUrl + "/s/" + share.getShareToken();
+                String shareUrl = getFrontendUrl() + "/s/" + share.getShareToken();
                 return ShareLinkResponse.builder()
                         .shareUrl(shareUrl)
                         .token(share.getShareToken())
@@ -196,7 +206,7 @@ public class ShareService {
 
         fileShareRepository.save(publicShare);
 
-        String shareUrl = appUrl + "/s/" + token;
+        String shareUrl = getFrontendUrl() + "/s/" + token;
         
         return ShareLinkResponse.builder()
                 .shareUrl(shareUrl)
@@ -217,7 +227,7 @@ public class ShareService {
         
         for (FileShare share : shares) {
             if (share.getShareToken() != null && share.getSharedWith() == null) {
-                String shareUrl = appUrl + "/s/" + share.getShareToken();
+                String shareUrl = getFrontendUrl() + "/s/" + share.getShareToken();
                 return ShareLinkResponse.builder()
                         .shareUrl(shareUrl)
                         .token(share.getShareToken())
@@ -332,7 +342,7 @@ public class ShareService {
                                 .filter(share -> share.getShareToken() != null && 
                                                share.getSharedWith() == null)
                                 .findFirst()
-                                .map(share -> appUrl + "/s/" + share.getShareToken())
+                                .map(share -> getFrontendUrl() + "/s/" + share.getShareToken())
                                 .orElse(null);
                     }
                     

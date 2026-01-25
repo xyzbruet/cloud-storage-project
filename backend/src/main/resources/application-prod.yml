@@ -82,12 +82,14 @@ google:
     id: ${GOOGLE_CLIENT_ID:}
 
 # ===============================
-# APPLICATION (Production URLs)
+# APPLICATION (Production URLs) - FIXED
 # ===============================
 app:
   url: ${APP_URL:https://cloud-storage-project-tau.vercel.app}
   base-url: ${APP_BASE_URL}
-  frontend-url: ${APP_FRONTEND_URL}
+  # ✅ FIXED: Changed from frontend-url to frontend.url (matches @Value annotation)
+  frontend:
+    url: ${APP_FRONTEND_URL}
   upload:
     profile-pictures: /tmp/uploads/profile-pictures/
     files: /tmp/uploads/files/
