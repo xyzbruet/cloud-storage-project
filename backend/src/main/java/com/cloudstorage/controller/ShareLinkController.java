@@ -1,10 +1,20 @@
 package com.cloudstorage.controller;
 
+import com.cloudstorage.dto.response.ApiResponse;
+import com.cloudstorage.dto.response.FileResponse;
 import com.cloudstorage.dto.response.FolderResponse;
+import com.cloudstorage.exception.ResourceNotFoundException;
+import com.cloudstorage.model.File;
 import com.cloudstorage.service.FolderShareService;
+import com.cloudstorage.service.ShareService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,22 +24,113 @@ import org.springframework.web.bind.annotation.*;
 public class ShareLinkController {
     
     private final FolderShareService folderShareService;
+    private final ShareService shareService;
     
     /**
-     * Get shared folder by token (root folder)
+     * Universal share link endpoint - detects if it's a file or folder
      * URL: /s/{token}
+     * 
+     * FIXED: Removed @Transactional to prevent rollback issues
+     * Each service method handles its own transaction
      */
     @GetMapping("/{token}")
-    public ResponseEntity<FolderResponse> getSharedFolder(@PathVariable String token) {
-        log.info("📥 Received request for shared folder with token: {}", token);
+    public ResponseEntity<?> getSharedResource(@PathVariable String token) {
+        log.info("📥 Received share link request for token: {}", token);
         
+        // Try folder first (each service method has its own transaction)
         try {
             FolderResponse folder = folderShareService.getSharedFolderByToken(token);
-            log.info("✅ Successfully retrieved shared folder: {}", folder.getName());
-            return ResponseEntity.ok(folder);
-        } catch (RuntimeException e) {
-            log.error("❌ Error retrieving shared folder: {}", e.getMessage());
-            throw e;
+            log.info("✅ Share link is a FOLDER: {}", folder.getName());
+            return ResponseEntity.ok(ApiResponse.success(folder));
+        } catch (ResourceNotFoundException folderEx) {
+            log.debug("Not a folder share, trying file...");
+        } catch (Exception folderEx) {
+            log.debug("Error checking folder: {}", folderEx.getMessage());
+        }
+        
+        // Try file (separate transaction)
+        try {
+            FileResponse file = shareService.getSharedFileDetails(token);
+            log.info("✅ Share link is a FILE: {}", file.getName());
+            return ResponseEntity.ok(ApiResponse.success(file));
+        } catch (ResourceNotFoundException fileEx) {
+            log.error("❌ Token not found as folder or file: {}", token);
+            return ResponseEntity.status(404)
+                    .body(ApiResponse.error("Invalid or expired share link"));
+        } catch (Exception fileEx) {
+            log.error("❌ Unexpected error: {}", fileEx.getMessage(), fileEx);
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Server error while loading shared content"));
+        }
+    }
+    
+    /**
+     * Download shared file or file from shared folder
+     * URL: /s/{token}/download (for single file shares)
+     * URL: /s/{token}/download?fileId={fileId} (for files in shared folders)
+     * CRITICAL: @Transactional to maintain DB session for lazy loading
+     */
+    @GetMapping("/{token}/download")
+    @Transactional(readOnly = true)
+    public ResponseEntity<Resource> downloadFile(
+            @PathVariable String token,
+            @RequestParam(required = false) Long fileId) {
+        
+        log.info("⬇️ Download request - token: {}, fileId: {}", token, fileId);
+        
+        try {
+            File file;
+            
+            // If fileId is provided, download that specific file from the shared folder
+            if (fileId != null) {
+                log.info("📁 Downloading file {} from shared folder", fileId);
+                file = folderShareService.getFileFromSharedFolder(token, fileId);
+            } else {
+                // Otherwise, download the single file associated with this share token
+                log.info("📄 Downloading single shared file");
+                file = shareService.getSharedFileForDownload(token);
+            }
+            
+            // File data is already loaded within transaction
+            byte[] fileData = file.getFileData();
+            
+            if (fileData == null || fileData.length == 0) {
+                log.error("❌ File data is null or empty for file: {}", file.getName());
+                throw new RuntimeException("File data not found");
+            }
+            
+            log.info("✅ Serving file: {} ({} bytes, type: {})", 
+                     file.getName(), fileData.length, file.getMimeType());
+            
+            // Create ByteArrayResource from file data
+            ByteArrayResource resource = new ByteArrayResource(fileData);
+            
+            // Determine media type
+            MediaType mediaType;
+            try {
+                mediaType = MediaType.parseMediaType(file.getMimeType());
+            } catch (Exception e) {
+                log.warn("⚠️ Invalid mime type: {}, using application/octet-stream", file.getMimeType());
+                mediaType = MediaType.APPLICATION_OCTET_STREAM;
+            }
+            
+            // Return file with proper headers
+            return ResponseEntity.ok()
+                    .contentType(mediaType)
+                    .contentLength(fileData.length)
+                    .header(HttpHeaders.CONTENT_DISPOSITION, 
+                            "attachment; filename=\"" + file.getName() + "\"")
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .body(resource);
+                    
+        } catch (ResourceNotFoundException e) {
+            log.error("❌ File not found: {}", e.getMessage());
+            return ResponseEntity.status(404).build();
+        } catch (Exception e) {
+            log.error("❌ Download failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).build();
         }
     }
     
@@ -38,19 +139,25 @@ public class ShareLinkController {
      * URL: /s/{token}/folder/{subfolderId}
      */
     @GetMapping("/{token}/folder/{subfolderId}")
-    public ResponseEntity<FolderResponse> getSharedSubfolder(
+    @Transactional(readOnly = true)
+    public ResponseEntity<ApiResponse<FolderResponse>> getSharedSubfolder(
             @PathVariable String token,
             @PathVariable Long subfolderId) {
         
-        log.info("📥 Received request for subfolder {} with token: {}", subfolderId, token);
+        log.info("📂 Request for subfolder {} with token: {}", subfolderId, token);
         
         try {
             FolderResponse folder = folderShareService.getSharedSubfolderByToken(token, subfolderId);
-            log.info("✅ Successfully retrieved subfolder: {}", folder.getName());
-            return ResponseEntity.ok(folder);
-        } catch (RuntimeException e) {
+            log.info("✅ Retrieved subfolder: {}", folder.getName());
+            return ResponseEntity.ok(ApiResponse.success(folder));
+        } catch (ResourceNotFoundException e) {
+            log.error("❌ Subfolder not found: {}", e.getMessage());
+            return ResponseEntity.status(404)
+                    .body(ApiResponse.error("Subfolder not found"));
+        } catch (Exception e) {
             log.error("❌ Error retrieving subfolder: {}", e.getMessage());
-            throw e;
+            return ResponseEntity.status(500)
+                    .body(ApiResponse.error("Server error while loading subfolder"));
         }
     }
 }

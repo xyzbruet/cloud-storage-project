@@ -61,21 +61,13 @@ public class SecurityConfig {
                     "/api/auth/register"
                 ).permitAll()
 
-                // Future: OTP/Google endpoints (commented for now)
-                // .requestMatchers(
-                //     "/api/auth/send-login-otp",
-                //     "/api/auth/verify-login-otp",
-                //     "/api/auth/send-register-otp",
-                //     "/api/auth/verify-register-otp",
-                //     "/api/auth/google-login"
-                // ).permitAll()
-
-                // Shared links (public access)
+                // ✅ FIX: Shared links - support both formats
                 .requestMatchers(
-                    "/api/folders/shared-link/**",
-                    "/api/files/shared-link/**",
-                    "/api/files/s/**",
-                    "/uploads/**"
+                    "/s/**",                              // Short format: /s/{token}
+                    "/api/folders/shared-link/**",       // Folder shared links
+                    "/api/files/shared-link/**",         // File shared links  
+                    "/api/files/s/**",                   // Alternative file format
+                    "/uploads/**"                        // Static file uploads
                 ).permitAll()
 
                 // Protected endpoints (requires JWT)

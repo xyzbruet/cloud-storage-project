@@ -402,6 +402,58 @@ public class FolderShareService {
                 .collect(Collectors.toList());
     }
 
+    /**
+ * Get a file from a shared folder for download
+ * Verifies that the file belongs to the shared folder or its subfolders
+ */
+@Transactional(readOnly = true)
+public File getFileFromSharedFolder(String token, Long fileId) {
+    log.info("📥 Getting file {} from shared folder with token {}", fileId, token);
+    
+    // Verify the share token is valid
+    FolderShare share = folderShareRepository
+            .findByShareTokenAndIsActiveTrue(token)
+            .orElseThrow(() -> new RuntimeException("Invalid or expired share link"));
+    
+    Folder sharedRootFolder = share.getFolder();
+    log.info("✅ Valid share found for root folder: {}", sharedRootFolder.getName());
+    
+    // Get the file
+    File file = fileRepository.findById(fileId)
+            .orElseThrow(() -> new RuntimeException("File not found"));
+    
+    log.info("📄 File found: {}", file.getName());
+    
+    // Verify the file belongs to the shared folder or its subfolders
+    Folder fileFolder = file.getFolder();
+    if (fileFolder == null) {
+        log.error("❌ File has no folder");
+        throw new RuntimeException("File does not belong to any folder");
+    }
+    
+    // Check if file's folder is the shared folder or a subfolder of it
+    if (!fileFolder.getId().equals(sharedRootFolder.getId()) && 
+        !isSubfolderOf(fileFolder, sharedRootFolder)) {
+        log.error("❌ File {} is not within shared folder {}", fileId, sharedRootFolder.getId());
+        throw new RuntimeException("This file is not within the shared folder");
+    }
+    
+    log.info("✅ Access verified - file is within shared hierarchy");
+    
+    // Eagerly load file data within transaction
+    byte[] fileData = file.getFileData();
+    if (fileData == null || fileData.length == 0) {
+        log.error("❌ File data is null or empty for file ID: {}", fileId);
+        throw new RuntimeException("File data not found in database");
+    }
+    
+    log.info("✅ File data loaded: {} bytes", fileData.length);
+    
+    return file;
+}
+
+
+
     // ================= REMOVE SELF =================
     @Transactional
     public void removeSelfFromSharedFolder(Long folderId, User currentUser) {
@@ -499,6 +551,8 @@ public class FolderShareService {
         return FolderResponse.builder()
                 .id(folder.getId())
                 .name(folder.getName())
+                .isFolder(true)  // ✅ ADD THIS
+                .mimeType("folder")  // ✅ ADD THIS
                 .parentId(folder.getParent() != null ? folder.getParent().getId() : null)
                 .permission(share.getPermission())
                 .sharedBy(share.getSharedBy().getFullName())
@@ -551,4 +605,6 @@ public class FolderShareService {
             fileRepository.save(file);
         }
     }
+
+
 }

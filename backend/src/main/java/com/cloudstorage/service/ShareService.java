@@ -442,17 +442,23 @@ public class ShareService {
         log.info("User {} removed themselves from file {}", currentUser.getEmail(), fileId);
     }
 
+    /**
+     * Get shared file details (metadata only)
+     * Used by frontend to display file info
+     */
     @Transactional(readOnly = true)
     public FileResponse getSharedFileDetails(String token) {
-
+        log.info("🔍 Getting file details for share token: {}", token);
+        
         FileShare share = fileShareRepository
                 .findByShareTokenAndIsActive(token, true)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Invalid or expired share link"));
 
         File file = share.getFile();
-
-        return FileResponse.builder()
+        
+        // Eagerly access properties to avoid lazy loading issues
+        FileResponse response = FileResponse.builder()
                 .id(file.getId())
                 .name(file.getName())
                 .size(file.getSize())
@@ -460,16 +466,42 @@ public class ShareService {
                 .isStarred(false) // public users can't star
                 .createdAt(file.getCreatedAt())
                 .build();
+        
+        log.info("✅ File details retrieved: {}", file.getName());
+        return response;
     }
 
+    /**
+     * Get shared file for download (includes file data)
+     * CRITICAL: Must be @Transactional to maintain DB session for lazy loading
+     */
     @Transactional(readOnly = true)
     public File getSharedFileForDownload(String token) {
-
+        log.info("📥 Getting file for download, share token: {}", token);
+        
         FileShare share = fileShareRepository
                 .findByShareTokenAndIsActive(token, true)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Invalid or expired share link"));
 
-        return share.getFile();
+        File file = share.getFile();
+        
+        // CRITICAL: Eagerly load ALL properties including file data
+        // This must happen INSIDE the transaction to avoid lazy loading errors
+        Long fileId = file.getId();
+        String fileName = file.getName();
+        String mimeType = file.getMimeType();
+        Long fileSize = file.getSize();
+        byte[] fileData = file.getFileData(); // Force load the lazy property
+        
+        // Validate file data
+        if (fileData == null || fileData.length == 0) {
+            log.error("❌ File data is null or empty for file ID: {}", fileId);
+            throw new RuntimeException("File data not found in database");
+        }
+        
+        log.info("✅ File loaded: {} ({} bytes)", fileName, fileData.length);
+        
+        return file;
     }
 }

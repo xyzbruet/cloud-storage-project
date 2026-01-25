@@ -108,6 +108,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                path.startsWith("/api/folders/shared-link/") ||
                path.startsWith("/api/files/shared-link/") ||
                path.startsWith("/api/files/s/") ||
+               path.startsWith("/s/") ||                    // ✅ FIX: Short URL format
                path.startsWith("/uploads/") ||
                path.equals("/") ||
                path.equals("/error");
