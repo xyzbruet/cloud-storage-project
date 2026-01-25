@@ -1,5 +1,4 @@
-
-            import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink, Loader2 } from 'lucide-react';
+import { X, Copy, Mail, Check, Link2, Trash2, AlertCircle, Eye, Edit, ExternalLink, Loader2 } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../../services/api';
 
@@ -216,9 +215,8 @@ export default function ShareModal({ file, onClose, onShared }) {
       
       let shareUrl = null;
       let existingPermission = 'view';
-      let token = null;
 
-      // Check various response structures
+      // Check various response structures - ONLY use backend-provided URLs
       if (response.data?.data?.shareUrl) {
         shareUrl = response.data.data.shareUrl;
         existingPermission = response.data.data.permission || 'view';
@@ -231,23 +229,14 @@ export default function ShareModal({ file, onClose, onShared }) {
       } else if (response.data?.shareLink) {
         shareUrl = response.data.shareLink;
         existingPermission = response.data.permission || 'view';
-      } else if (response.data?.data?.token) {
-        token = response.data.data.token;
-        existingPermission = response.data.data.permission || 'view';
-      } else if (response.data?.token) {
-        token = response.data.token;
-        existingPermission = response.data.permission || 'view';
       }
 
+      // ✅ IMPORTANT: Only set if backend provided a complete URL
       if (shareUrl) {
         setShareLink(shareUrl);
         setLinkPermission(existingPermission);
-      } else if (token) {
-        // ✅ FIXED: Use FRONTEND_URL instead of hardcoded backend URL
-        const constructedUrl = `${FRONTEND_URL}/s/${token}`;
-        setShareLink(constructedUrl);
-        setLinkPermission(existingPermission);
       }
+      // If no URL found, that means no existing link - don't construct one
     } catch (err) {
       console.log('No existing share link found');
     }
@@ -336,9 +325,8 @@ export default function ShareModal({ file, onClose, onShared }) {
       });
 
       let shareUrl = null;
-      let token = null;
 
-      // Try different possible locations for the share URL
+      // Try different possible locations for the share URL - ONLY use backend-provided URLs
       if (response.data?.data?.shareUrl) {
         shareUrl = response.data.data.shareUrl;
       } else if (response.data?.shareUrl) {
@@ -355,20 +343,12 @@ export default function ShareModal({ file, onClose, onShared }) {
         shareUrl = response.data.url;
       }
 
-      if (!shareUrl) {
-        token = response.data?.data?.token || response.data?.token;
-      }
-
+      // ✅ ONLY set if backend provided a complete URL
       if (shareUrl) {
         setShareLink(shareUrl);
         showMessage('success', 'Share link generated successfully!');
-      } else if (token) {
-        // ✅ FIXED: Use FRONTEND_URL instead of hardcoded backend URL
-        const constructedUrl = `${FRONTEND_URL}/s/${token}`;
-        setShareLink(constructedUrl);
-        showMessage('success', 'Share link generated successfully!');
       } else {
-        showMessage('error', 'Link generated but URL not found in response. Please try again.');
+        showMessage('error', 'Link generated but URL not found in response. Please contact support.');
       }
 
       if (onShared) onShared();
