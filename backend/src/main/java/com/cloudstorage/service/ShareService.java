@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.cloudstorage.dto.response.OwnerDTO;
+import jakarta.annotation.PostConstruct;
 
 import java.util.List;
 import java.util.Map;
@@ -43,14 +44,28 @@ public class ShareService {
     @Value("${app.url:https://cloud-storage-project-tau.vercel.app}")
     private String appUrl;
 
-    @Value("${app.frontend.url:}")
+    @Value("${app.frontend-url:}")
     private String frontendUrl;
 
     private String getFrontendUrl() {
-        if (frontendUrl != null && !frontendUrl.isEmpty()) {
-            return frontendUrl;
+        // ✅ PRIORITY 1: Check if frontendUrl is set and not empty
+        if (frontendUrl != null && !frontendUrl.trim().isEmpty()) {
+            log.info("✅ Using frontend URL from env: {}", frontendUrl);
+            return frontendUrl.trim();
         }
+        
+        // ✅ PRIORITY 2: Fall back to appUrl
+        log.warn("⚠️ APP_FRONTEND_URL env var not set, using APP_URL: {}", appUrl);
         return appUrl;
+    }
+    
+    @PostConstruct
+    public void logConfig() {
+        log.info("=== SHARE SERVICE CONFIG ===");
+        log.info("app.url = {}", appUrl);
+        log.info("app.frontend-url = {}", frontendUrl);
+        log.info("getFrontendUrl() = {}", getFrontendUrl());
+        log.info("===========================");
     }
 
     private User getCurrentUser() {
