@@ -4,7 +4,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../Toast';
-// import { GoogleLogin } from '@react-oauth/google'; // For future use
+ import { GoogleLogin } from '@react-oauth/google'; // For future use
 import { Cloud, Mail, Lock } from 'lucide-react';
 
 export default function Login() {
@@ -56,30 +56,30 @@ export default function Login() {
   };
 
   // Future: Google Login Handler
-  // const handleGoogleSuccess = async (credentialResponse) => {
-  //   setLoading(true);
-  //   try {
-  //     const response = await authService.googleLogin(credentialResponse.credential);
-  //     
-  //     if (response.success && response.data) {
-  //       const { token, user } = response.data;
-  //       
-  //       setAuth(token, user);
-  //       toast.success('Login successful!');
-  //       navigate('/dashboard', { replace: true });
-  //     }
-  //   } catch (error) {
-  //     const message = error.response?.data?.message || 'Google login failed';
-  //     toast.error(message);
-  //     console.error('Google login error:', error);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    try {
+      const response = await authService.googleLogin(credentialResponse.credential);
+      
+      if (response.success && response.data) {
+        const { token, user } = response.data;
+        
+        setAuth(token, user);
+        toast.success('Login successful!');
+        navigate('/dashboard', { replace: true });
+      }
+    } catch (error) {
+      const message = error.response?.data?.message || 'Google login failed';
+      toast.error(message);
+      console.error('Google login error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // const handleGoogleError = () => {
-  //   toast.error('Google login failed');
-  // };
+  const handleGoogleError = () => {
+    toast.error('Google login failed');
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
@@ -169,7 +169,7 @@ export default function Login() {
         </form>
 
         {/* Future: Google Sign In */}
-        {/* <>
+        {<>
           <div className="relative my-6">
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-gray-300"></div>
@@ -193,7 +193,7 @@ export default function Login() {
               logo_alignment="left"
             />
           </div>
-        </> */}
+        </> }
 
         {/* Register Link */}
         <p className="mt-6 text-center text-sm text-gray-600">

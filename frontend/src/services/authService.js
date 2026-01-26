@@ -93,43 +93,43 @@ export const authService = {
 
   // ==================== FUTURE: GOOGLE LOGIN ====================
 
-  // googleLogin: async (credential) => {
-  //   try {
-  //     const response = await api.post('/auth/google-login', {
-  //       credential,
-  //     });
+  googleLogin: async (credential) => {
+    try {
+      const response = await api.post('/auth/google-login', {
+        credential,
+      });
 
-  //     console.log('✅ Full Google login response:', response);
-  //     console.log('✅ Response data:', response.data);
+      console.log('✅ Full Google login response:', response);
+      console.log('✅ Response data:', response.data);
 
-  //     const responseData = response.data;
-  //     const token = responseData.data?.token || responseData.token;
-  //     const user = responseData.data?.user || responseData.user;
+      const responseData = response.data;
+      const token = responseData.data?.token || responseData.token;
+      const user = responseData.data?.user || responseData.user;
 
-  //     console.log('🔑 Extracted token:', token ? token.substring(0, 20) + '...' : 'NOT FOUND');
-  //     console.log('👤 Extracted user:', user);
+      console.log('🔑 Extracted token:', token ? token.substring(0, 20) + '...' : 'NOT FOUND');
+      console.log('👤 Extracted user:', user);
 
-  //     if (token && user) {
-  //       localStorage.setItem('token', token);
-  //       localStorage.setItem('user', JSON.stringify(user));
-  //       console.log('✅ Token and user saved to localStorage');
+      if (token && user) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        console.log('✅ Token and user saved to localStorage');
         
-  //       // Force page reload to dashboard after successful login
-  //       console.log('🚀 Redirecting to dashboard...');
-  //       setTimeout(() => {
-  //         window.location.href = '/dashboard';
-  //       }, 500);
+        // Force page reload to dashboard after successful login
+        console.log('🚀 Redirecting to dashboard...');
+        setTimeout(() => {
+          window.location.href = '/dashboard';
+        }, 500);
         
-  //       return responseData;
-  //     } else {
-  //       console.error('❌ Token or user missing in response');
-  //       throw new Error('Invalid response from server - missing token or user');
-  //     }
-  //   } catch (error) {
-  //     console.error('❌ Google login error:', error);
-  //     throw error.response?.data || error;
-  //   }
-  // },
+        return responseData;
+      } else {
+        console.error('❌ Token or user missing in response');
+        throw new Error('Invalid response from server - missing token or user');
+      }
+    } catch (error) {
+      console.error('❌ Google login error:', error);
+      throw error.response?.data || error;
+    }
+  },
 
   // ==================== LOGOUT ====================
 

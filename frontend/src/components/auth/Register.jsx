@@ -5,7 +5,7 @@ import { authService } from '../../services/authService';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../Toast';
 import { Cloud, Mail, Lock, User, Phone } from 'lucide-react';
-// import GoogleButton from './GoogleButton'; // For future use
+ import GoogleButton from './GoogleButton'; // For future use
 // import OTPInput from './OTPInput'; // For future use
 
 export default function Register() {
@@ -194,7 +194,7 @@ export default function Register() {
             </button>
 
             {/* Future: Google Sign Up */}
-            {/* <div className="mt-6">
+            { <div className="mt-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-300" />
@@ -207,7 +207,7 @@ export default function Register() {
               <div className="mt-4">
                 <GoogleButton />
               </div>
-            </div> */}
+            </div> }
 
             {/* Login Link */}
             <div className="text-center text-sm">
