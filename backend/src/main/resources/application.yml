@@ -1,3 +1,6 @@
+# ===============================
+# APPLICATION
+# ===============================
 spring:
   application:
     name: cloud-storage-backend
@@ -10,6 +13,10 @@ spring:
     username: ${DB_USERNAME:postgres}
     password: ${DB_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
 
   # ===============================
   # JPA
@@ -17,12 +24,14 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
+    show-sql: false
     open-in-view: false
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 20
 
   # ===============================
   # FILE UPLOAD
@@ -33,6 +42,22 @@ spring:
       max-file-size: ${MAX_FILE_SIZE:100MB}
       max-request-size: ${MAX_REQUEST_SIZE:100MB}
 
+  # ===============================
+  # EMAIL
+  # ===============================
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+
 # ===============================
 # SERVER
 # ===============================
@@ -41,62 +66,37 @@ server:
   error:
     include-message: always
     include-binding-errors: always
+  shutdown: graceful
 
 # ===============================
-# APPLICATION
+# APPLICATION URLs
 # ===============================
 app:
-  url: ${APP_URL:http://localhost:3000}
   base-url: ${APP_BASE_URL:http://localhost:8080}
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  frontend-url: ${APP_FRONTEND_URL:http://localhost:3000}
   upload:
     profile-pictures: ${UPLOAD_PROFILE_PICTURES:uploads/profile-pictures/}
     files: ${UPLOAD_FILES:uploads/files/}
 
 # ===============================
-# FILE STORAGE (Default: Local)
+# FILE STORAGE
 # ===============================
 file:
   storage-type: ${FILE_STORAGE_TYPE:local}
   upload-dir: ${FILE_UPLOAD_DIR:uploads}
 
 # ===============================
-# AWS S3 (Disabled by default)
-# ===============================
-aws:
-  s3:
-    enabled: ${AWS_S3_ENABLED:false}
-    bucket-name: ${AWS_S3_BUCKET_NAME:}
-    region: ${AWS_S3_REGION:us-east-1}
-    access-key: ${AWS_ACCESS_KEY:}
-    secret-key: ${AWS_SECRET_KEY:}
-
-# ===============================
 # JWT
 # ===============================
 jwt:
-  secret: ${JWT_SECRET:your-dev-secret-key-change-in-production}
-  expiration: ${JWT_EXPIRATION:86400000}
-
-# ===============================
-# EMAIL (Optional)
-# ===============================
-mail:
-  host: ${MAIL_HOST:smtp.gmail.com}
-  port: ${MAIL_PORT:587}
-  username: ${MAIL_USERNAME:}
-  password: ${MAIL_PASSWORD:}
-  properties:
-    mail:
-      smtp:
-        auth: true
-        starttls:
-          enable: true
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION:604800000}
 
 # ===============================
 # LOGGING
 # ===============================
 logging:
   level:
-    root: ${LOG_LEVEL_ROOT:INFO}
-    com.cloudstorage: ${LOG_LEVEL_APP:DEBUG}
+    root: WARN
+    com.cloudstorage: INFO
+    org.springframework.security: WARN

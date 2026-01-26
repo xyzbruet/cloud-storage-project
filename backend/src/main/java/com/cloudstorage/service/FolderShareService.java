@@ -38,9 +38,13 @@ public class FolderShareService {
     private final UserRepository userRepository;
     private final EmailService emailService;
 
-    @Value("${app.base-url}")
-    private String baseUrl;
+    // ✅ FIX: Use frontend URL for generating share links
+    @Value("${app.frontend-url:http://localhost:3000}")
+    private String frontendUrl;
 
+    // Keep baseUrl for other purposes if needed
+    @Value("${app.base-url:http://localhost:8080}")
+    private String baseUrl;
 
     // ================= AUTH =================
 
@@ -52,6 +56,7 @@ public class FolderShareService {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
+
     // ================= PERMISSION CHECK =================
 
     /**
@@ -203,7 +208,9 @@ public class FolderShareService {
                     return folderShareRepository.save(fs);
                 });
 
-        String shareUrl = baseUrl + "/s/" + publicShare.getShareToken();
+        // ✅ CRITICAL FIX: Use frontendUrl instead of baseUrl
+        String shareUrl = frontendUrl + "/s/" + publicShare.getShareToken();
+        log.info("📱 Generated folder share link: {} -> {}", publicShare.getShareToken(), shareUrl);
 
         return ShareLinkResponse.builder()
                 .token(publicShare.getShareToken())
@@ -226,12 +233,16 @@ public class FolderShareService {
         
         return folderShareRepository
                 .findByFolderAndShareTokenIsNotNullAndIsActiveTrue(folder)
-                .map(share -> ShareLinkResponse.builder()
-                        .token(share.getShareToken())
-                        .shareUrl(baseUrl + "/s/" + share.getShareToken())
-                        .permission(share.getPermission())
-                        .isActive(true)
-                        .build())
+                .map(share -> {
+                    // ✅ CRITICAL FIX: Use frontendUrl instead of baseUrl
+                    String shareUrl = frontendUrl + "/s/" + share.getShareToken();
+                    return ShareLinkResponse.builder()
+                            .token(share.getShareToken())
+                            .shareUrl(shareUrl)
+                            .permission(share.getPermission())
+                            .isActive(true)
+                            .build();
+                })
                 .orElse(null);
     }
 
@@ -251,6 +262,7 @@ public class FolderShareService {
                 .ifPresent(share -> {
                     share.setIsActive(false);
                     folderShareRepository.save(share);
+                    log.info("🔒 Revoked share link for folder: {}", folder.getId());
                 });
     }
 
@@ -276,6 +288,7 @@ public class FolderShareService {
 
         share.setIsActive(false);
         folderShareRepository.save(share);
+        log.info("✂️ Revoked user share for folder: {}", folderId);
     }
 
     @Transactional
@@ -298,6 +311,7 @@ public class FolderShareService {
 
         share.setPermission(permission);
         folderShareRepository.save(share);
+        log.info("🔄 Updated share permission to: {}", permission);
     }
 
     // ================= REMOVE ALL ACCESS =================
@@ -321,7 +335,7 @@ public class FolderShareService {
         
         markAsDeleted(folder, owner);
         
-        log.info("All access removed and folder soft-deleted: {}", folderId);
+        log.info("🗑️ All access removed and folder soft-deleted: {}", folderId);
     }
 
     // ================= SHARED WITH ME =================
@@ -379,7 +393,8 @@ public class FolderShareService {
                                 .filter(s -> s.getShareToken() != null && 
                                             s.getSharedWith() == null)
                                 .findFirst()
-                               .map(s -> baseUrl + "/s/" + s.getShareToken())  // ✅ FIXED
+                                // ✅ CRITICAL FIX: Use frontendUrl instead of baseUrl
+                                .map(s -> frontendUrl + "/s/" + s.getShareToken())
                                 .orElse(null);
                     }
                     
@@ -403,56 +418,54 @@ public class FolderShareService {
     }
 
     /**
- * Get a file from a shared folder for download
- * Verifies that the file belongs to the shared folder or its subfolders
- */
-@Transactional(readOnly = true)
-public File getFileFromSharedFolder(String token, Long fileId) {
-    log.info("📥 Getting file {} from shared folder with token {}", fileId, token);
-    
-    // Verify the share token is valid
-    FolderShare share = folderShareRepository
-            .findByShareTokenAndIsActiveTrue(token)
-            .orElseThrow(() -> new RuntimeException("Invalid or expired share link"));
-    
-    Folder sharedRootFolder = share.getFolder();
-    log.info("✅ Valid share found for root folder: {}", sharedRootFolder.getName());
-    
-    // Get the file
-    File file = fileRepository.findById(fileId)
-            .orElseThrow(() -> new RuntimeException("File not found"));
-    
-    log.info("📄 File found: {}", file.getName());
-    
-    // Verify the file belongs to the shared folder or its subfolders
-    Folder fileFolder = file.getFolder();
-    if (fileFolder == null) {
-        log.error("❌ File has no folder");
-        throw new RuntimeException("File does not belong to any folder");
+     * Get a file from a shared folder for download
+     * Verifies that the file belongs to the shared folder or its subfolders
+     */
+    @Transactional(readOnly = true)
+    public File getFileFromSharedFolder(String token, Long fileId) {
+        log.info("📥 Getting file {} from shared folder with token {}", fileId, token);
+        
+        // Verify the share token is valid
+        FolderShare share = folderShareRepository
+                .findByShareTokenAndIsActiveTrue(token)
+                .orElseThrow(() -> new RuntimeException("Invalid or expired share link"));
+        
+        Folder sharedRootFolder = share.getFolder();
+        log.info("✅ Valid share found for root folder: {}", sharedRootFolder.getName());
+        
+        // Get the file
+        File file = fileRepository.findById(fileId)
+                .orElseThrow(() -> new RuntimeException("File not found"));
+        
+        log.info("📄 File found: {}", file.getName());
+        
+        // Verify the file belongs to the shared folder or its subfolders
+        Folder fileFolder = file.getFolder();
+        if (fileFolder == null) {
+            log.error("❌ File has no folder");
+            throw new RuntimeException("File does not belong to any folder");
+        }
+        
+        // Check if file's folder is the shared folder or a subfolder of it
+        if (!fileFolder.getId().equals(sharedRootFolder.getId()) && 
+            !isSubfolderOf(fileFolder, sharedRootFolder)) {
+            log.error("❌ File {} is not within shared folder {}", fileId, sharedRootFolder.getId());
+            throw new RuntimeException("This file is not within the shared folder");
+        }
+        
+        log.info("✅ Access verified - file is within shared hierarchy");
+        
+        // Eagerly load file data within transaction
+        byte[] fileData = file.getFileData();
+        if (fileData == null || fileData.length == 0) {
+            log.error("❌ File data is null or empty for file ID: {}", fileId);
+            throw new RuntimeException("File data not found in database");
+        }
+        
+        log.info("✅ File data loaded: {} bytes", fileData.length);
+        
+        return file;
     }
-    
-    // Check if file's folder is the shared folder or a subfolder of it
-    if (!fileFolder.getId().equals(sharedRootFolder.getId()) && 
-        !isSubfolderOf(fileFolder, sharedRootFolder)) {
-        log.error("❌ File {} is not within shared folder {}", fileId, sharedRootFolder.getId());
-        throw new RuntimeException("This file is not within the shared folder");
-    }
-    
-    log.info("✅ Access verified - file is within shared hierarchy");
-    
-    // Eagerly load file data within transaction
-    byte[] fileData = file.getFileData();
-    if (fileData == null || fileData.length == 0) {
-        log.error("❌ File data is null or empty for file ID: {}", fileId);
-        throw new RuntimeException("File data not found in database");
-    }
-    
-    log.info("✅ File data loaded: {} bytes", fileData.length);
-    
-    return file;
-}
-
-
 
     // ================= REMOVE SELF =================
     @Transactional
@@ -465,6 +478,7 @@ public File getFileFromSharedFolder(String token, Long fileId) {
 
         share.setIsActive(false);
         folderShareRepository.save(share);
+        log.info("👤 User removed themselves from shared folder: {}", folderId);
     }
 
     // ================= GET SHARED FOLDER BY TOKEN =================
@@ -512,9 +526,14 @@ public File getFileFromSharedFolder(String token, Long fileId) {
 
     // ================= HELPER METHODS =================
 
+    /**
+     * Build FolderResponse with all necessary fields for frontend type detection
+     * ✅ CRITICAL: isFolder and mimeType MUST be set
+     */
     private FolderResponse buildFolderResponse(Folder folder, FolderShare share) {
         log.info("🏗️ Building response for folder: {}", folder.getName());
         
+        // Build subfolders list
         List<java.util.Map<String, Object>> subfolders = folderRepository
                 .findByParentAndIsDeleted(folder, false)
                 .stream()
@@ -531,6 +550,7 @@ public File getFileFromSharedFolder(String token, Long fileId) {
         
         log.info("📁 Found {} subfolders", subfolders.size());
         
+        // Build files list
         List<java.util.Map<String, Object>> files = fileRepository
                 .findByFolderAndIsDeleted(folder, false)
                 .stream()
@@ -548,21 +568,30 @@ public File getFileFromSharedFolder(String token, Long fileId) {
         
         log.info("📄 Found {} files", files.size());
         
-        return FolderResponse.builder()
+        int itemCount = subfolders.size() + files.size();
+        
+        // ✅ CRITICAL: Always set isFolder=true and mimeType="folder"
+        // These are used by frontend to detect this is a folder
+        FolderResponse response = FolderResponse.builder()
                 .id(folder.getId())
                 .name(folder.getName())
-                .isFolder(true)  // ✅ ADD THIS
-                .mimeType("folder")  // ✅ ADD THIS
+                .isFolder(true)                    // ✅ MUST be true
+                .mimeType("folder")                // ✅ MUST be "folder"
                 .parentId(folder.getParent() != null ? folder.getParent().getId() : null)
                 .permission(share.getPermission())
                 .sharedBy(share.getSharedBy().getFullName())
                 .sharedAt(share.getCreatedAt())
-                .subfolders(subfolders)
                 .files(files)
-                .itemCount(subfolders.size() + files.size())
+                .subfolders(subfolders)
+                .itemCount(itemCount)
                 .createdAt(folder.getCreatedAt())
                 .updatedAt(folder.getUpdatedAt())
                 .build();
+        
+        log.info("✅ Response built: isFolder={}, mimeType={}, itemCount={}, files={}, subfolders={}", 
+                 response.getIsFolder(), response.getMimeType(), itemCount, files.size(), subfolders.size());
+        
+        return response;
     }
 
     private boolean isSubfolderOf(Folder subfolder, Folder potentialParent) {
@@ -605,6 +634,4 @@ public File getFileFromSharedFolder(String token, Long fileId) {
             fileRepository.save(file);
         }
     }
-
-
 }

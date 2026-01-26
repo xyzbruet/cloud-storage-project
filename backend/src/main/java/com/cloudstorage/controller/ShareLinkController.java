@@ -29,18 +29,24 @@ public class ShareLinkController {
     /**
      * Universal share link endpoint - detects if it's a file or folder
      * URL: /s/{token}
-     * 
-     * FIXED: Removed @Transactional to prevent rollback issues
-     * Each service method handles its own transaction
      */
     @GetMapping("/{token}")
     public ResponseEntity<?> getSharedResource(@PathVariable String token) {
         log.info("📥 Received share link request for token: {}", token);
         
-        // Try folder first (each service method has its own transaction)
+        // Try folder first
         try {
             FolderResponse folder = folderShareService.getSharedFolderByToken(token);
+            
+            // ✅ Debug: Log the response structure
             log.info("✅ Share link is a FOLDER: {}", folder.getName());
+            log.info("📋 Folder Response Details:");
+            log.info("  - isFolder: {}", folder.getIsFolder());
+            log.info("  - mimeType: {}", folder.getMimeType());
+            log.info("  - files: {}", folder.getFiles() != null ? folder.getFiles().size() : 0);
+            log.info("  - subfolders: {}", folder.getSubfolders() != null ? folder.getSubfolders().size() : 0);
+            log.info("  - itemCount: {}", folder.getItemCount());
+            
             return ResponseEntity.ok(ApiResponse.success(folder));
         } catch (ResourceNotFoundException folderEx) {
             log.debug("Not a folder share, trying file...");
@@ -48,7 +54,7 @@ public class ShareLinkController {
             log.debug("Error checking folder: {}", folderEx.getMessage());
         }
         
-        // Try file (separate transaction)
+        // Try file
         try {
             FileResponse file = shareService.getSharedFileDetails(token);
             log.info("✅ Share link is a FILE: {}", file.getName());
@@ -65,10 +71,39 @@ public class ShareLinkController {
     }
     
     /**
+     * Debug endpoint - check what the backend returns for a token
+     * URL: /s/{token}/debug
+     * Only accessible for testing - remove in production
+     */
+    @GetMapping("/{token}/debug")
+    public ResponseEntity<?> debugShareLink(@PathVariable String token) {
+        log.info("🔧 DEBUG: Checking share link token: {}", token);
+        
+        try {
+            FolderResponse folder = folderShareService.getSharedFolderByToken(token);
+            
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(ApiResponse.success(folder));
+        } catch (Exception folderEx) {
+            log.debug("Not a folder, trying file...");
+        }
+        
+        try {
+            FileResponse file = shareService.getSharedFileDetails(token);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(ApiResponse.success(file));
+        } catch (Exception fileEx) {
+            return ResponseEntity.status(404)
+                    .body(ApiResponse.error("Token not found: " + fileEx.getMessage()));
+        }
+    }
+    
+    /**
      * Download shared file or file from shared folder
      * URL: /s/{token}/download (for single file shares)
      * URL: /s/{token}/download?fileId={fileId} (for files in shared folders)
-     * CRITICAL: @Transactional to maintain DB session for lazy loading
      */
     @GetMapping("/{token}/download")
     @Transactional(readOnly = true)

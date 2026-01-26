@@ -31,7 +31,7 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-            // 1️⃣ CORS
+            // 1️⃣ CORS - must be first
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
             // 2️⃣ CSRF
@@ -42,35 +42,28 @@ public class SecurityConfig {
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
 
-            // 4️⃣ Authorization rules
+            // 4️⃣ Authorization rules - ORDER MATTERS! More specific patterns first
             .authorizeHttpRequests(auth -> auth
-                // OPTIONS first (CORS preflight)
+                // ✅ FIX: Public share links MUST come BEFORE the JWT filter is applied
+                // These endpoints don't require authentication
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-
-                // Public endpoints
+                
+                .requestMatchers("/s/**").permitAll()                    // All public share links
+                .requestMatchers("/api/files/s/**").permitAll()          // File share links
+                .requestMatchers("/api/folders/s/**").permitAll()        // Folder share links
+                .requestMatchers("/uploads/**").permitAll()              // Static uploads
+                
+                // Public auth endpoints
                 .requestMatchers(
                     "/",
                     "/api/health",
                     "/actuator/health",
-                    "/error"
-                ).permitAll()
-
-                // Simple Auth endpoints (no JWT required)
-                .requestMatchers(
+                    "/error",
                     "/api/auth/login",
                     "/api/auth/register"
                 ).permitAll()
 
-                // ✅ FIX: Shared links - support both formats
-                .requestMatchers(
-                    "/s/**",                              // Short format: /s/{token}
-                    "/api/folders/shared-link/**",       // Folder shared links
-                    "/api/files/shared-link/**",         // File shared links  
-                    "/api/files/s/**",                   // Alternative file format
-                    "/uploads/**"                        // Static file uploads
-                ).permitAll()
-
-                // Protected endpoints (requires JWT)
+                // Protected endpoints - require authentication
                 .requestMatchers(
                     "/api/auth/me",
                     "/api/user/**",
@@ -83,7 +76,7 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
 
-            // 5️⃣ JWT filter
+            // 5️⃣ JWT filter - added AFTER auth rules are defined
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -99,7 +92,8 @@ public class SecurityConfig {
             "http://localhost:3000",
             "http://127.0.0.1:5173",
             "http://127.0.0.1:3000",
-            "https://cloud-storage-project-tau.vercel.app"
+            "https://cloud-storage-project-tau.vercel.app",
+            "https://yourdomain.com"  // Add your production domain
         ));
 
         // Allowed methods
@@ -116,7 +110,7 @@ public class SecurityConfig {
         // Max age for preflight cache
         configuration.setMaxAge(3600L);
 
-        // Exposed headers (so frontend can read them)
+        // Exposed headers
         configuration.setExposedHeaders(Arrays.asList(
             "Authorization",
             "Content-Type",
