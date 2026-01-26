@@ -6,10 +6,12 @@ import com.cloudstorage.dto.response.UserResponse;
 import com.cloudstorage.model.AuthProvider;
 import com.cloudstorage.model.User;
 import com.cloudstorage.repository.UserRepository;
+import com.cloudstorage.security.GoogleTokenVerifier;
 import com.cloudstorage.security.JwtTokenProvider;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,10 +26,9 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    // private final EmailService emailService; // For future OTP implementation
-
-    @Value("${google.client.id:}")
-    private String googleClientId;
+    
+    @Autowired(required = false)
+    private GoogleTokenVerifier googleTokenVerifier;
 
     // ================= SIMPLE REGISTRATION =================
     @Transactional
@@ -45,7 +46,7 @@ public class AuthService {
                 .password(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName())
                 .phone(request.getPhone() != null ? request.getPhone() : "")
-                .emailVerified(true) // Auto-verify for simple auth
+                .emailVerified(true)
                 .provider(AuthProvider.LOCAL)
                 .build();
 
@@ -113,6 +114,102 @@ public class AuthService {
         String email = auth.getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    // ================= GOOGLE LOGIN =================
+    @Transactional
+    public AuthResponse googleLogin(GoogleLoginRequest request) {
+        try {
+            log.info("🔵 Starting Google login process...");
+            
+            // Check if Google OAuth is configured
+            if (googleTokenVerifier == null) {
+                log.error("❌ Google OAuth not configured - googleTokenVerifier is null");
+                throw new RuntimeException("Google OAuth is not configured on the server");
+            }
+            
+            // Verify Google token
+            GoogleIdToken.Payload payload = googleTokenVerifier.verify(request.getCredential());
+            
+            if (payload == null) {
+                log.error("❌ Google token verification failed");
+                throw new RuntimeException("Invalid Google token");
+            }
+
+            // Extract and validate variables - MAKE FINAL FOR LAMBDA
+            final String googleId = payload.getSubject();
+            final String rawEmail = (String) payload.get("email");
+            final String name = (String) payload.get("name");
+            final String picture = (String) payload.get("picture");
+
+            if (rawEmail == null || rawEmail.isEmpty()) {
+                log.error("❌ Email not found in Google token payload");
+                throw new RuntimeException("Email not found in Google token");
+            }
+
+            final String email = rawEmail.toLowerCase().trim();
+            log.info("✅ Google token verified. Email: {}", email);
+
+            // Find user by google_id first
+            User user = userRepository.findByGoogleId(googleId)
+                    .orElseGet(() -> findOrCreateUserByEmail(googleId, email, name, picture));
+
+            userRepository.save(user);
+            log.info("✅ User saved/updated: {}", user.getEmail());
+
+            // Generate JWT token
+            String token = jwtTokenProvider.generateToken(user.getEmail());
+            log.info("✅ User logged in via Google: {}", user.getEmail());
+
+            return AuthResponse.builder()
+                    .token(token)
+                    .user(mapToUserResponse(user))
+                    .build();
+
+        } catch (Exception e) {
+            log.error("❌ Google authentication failed: {}", e.getMessage(), e);
+            throw new RuntimeException("Google authentication failed: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Helper method to find user by email or create new one
+     * Extracted to avoid lambda variable issues
+     */
+    private User findOrCreateUserByEmail(String googleId, String email, String name, String picture) {
+        return userRepository.findByEmail(email)
+                .map(existingUser -> {
+                    log.info("👤 User found by email: {}", email);
+                    
+                    // Link Google ID if not already set
+                    if (existingUser.getGoogleId() == null) {
+                        log.info("🔗 Linking Google ID to existing user");
+                        existingUser.setGoogleId(googleId);
+                    } else if (!existingUser.getGoogleId().equals(googleId)) {
+                        log.warn("⚠️ User has different Google ID");
+                    }
+                    
+                    // Update profile if empty
+                    if (existingUser.getFullName() == null || existingUser.getFullName().isEmpty()) {
+                        existingUser.setFullName(name != null ? name : "Google User");
+                    }
+                    if (existingUser.getProfilePicture() == null || existingUser.getProfilePicture().isEmpty()) {
+                        existingUser.setProfilePicture(picture);
+                    }
+                    
+                    return existingUser;
+                })
+                .orElseGet(() -> {
+                    log.info("✨ Creating new user from Google: {}", email);
+                    return User.builder()
+                            .googleId(googleId)
+                            .email(email)
+                            .fullName(name != null ? name : "Google User")
+                            .profilePicture(picture)
+                            .emailVerified(true)
+                            .provider(AuthProvider.GOOGLE)
+                            .build();
+                });
     }
 
     // ================= HELPER =================
@@ -240,61 +337,5 @@ public class AuthService {
     //             .token(token)
     //             .user(mapToUserResponse(user))
     //             .build();
-    // }
-
-    // ================= FUTURE: GOOGLE LOGIN =================
-    // @Transactional
-    // public AuthResponse googleLogin(GoogleLoginRequest request) {
-    //     try {
-    //         GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
-    //                 new NetHttpTransport(), new GsonFactory())
-    //                 .setAudience(Collections.singletonList(googleClientId))
-    //                 .build();
-    //
-    //         GoogleIdToken idToken = verifier.verify(request.getCredential());
-    //         if (idToken == null) {
-    //             throw new RuntimeException("Invalid Google token");
-    //         }
-    //
-    //         GoogleIdToken.Payload payload = idToken.getPayload();
-    //         String googleId = payload.getSubject();
-    //         String email = payload.getEmail();
-    //         String name = (String) payload.get("name");
-    //         String picture = (String) payload.get("picture");
-    //
-    //         User user = userRepository.findByEmail(email)
-    //                 .orElseGet(() -> User.builder()
-    //                         .googleId(googleId)
-    //                         .email(email)
-    //                         .fullName(name)
-    //                         .profilePicture(picture)
-    //                         .emailVerified(true)
-    //                         .provider(AuthProvider.GOOGLE)
-    //                         .build()
-    //                 );
-    //
-    //         if (user.getGoogleId() == null) {
-    //             user.setGoogleId(googleId);
-    //             user.setEmailVerified(true);
-    //             if (user.getProfilePicture() == null) {
-    //                 user.setProfilePicture(picture);
-    //             }
-    //         }
-    //
-    //         userRepository.save(user);
-    //
-    //         String token = jwtTokenProvider.generateToken(user.getEmail());
-    //
-    //         log.info("User logged in via Google: {}", user.getEmail());
-    //
-    //         return AuthResponse.builder()
-    //                 .token(token)
-    //                 .user(mapToUserResponse(user))
-    //                 .build();
-    //
-    //     } catch (Exception e) {
-    //         log.error("Google authentication failed", e);
-    //         throw new RuntimeException("Google authentication failed: " + e.getMessage());
-    //     }
     // }
 }

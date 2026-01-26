@@ -103,13 +103,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean isPublicEndpoint(String path) {
         return path.startsWith("/api/auth/login") ||
                path.startsWith("/api/auth/register") ||
+               path.startsWith("/api/auth/google-login") ||      // ✅ NEW: Google OAuth endpoint
                path.startsWith("/api/health") ||
                path.startsWith("/actuator/health") ||
                path.startsWith("/api/folders/shared-link/") ||
                path.startsWith("/api/files/shared-link/") ||
                path.startsWith("/api/files/s/") ||
-               path.startsWith("/s/") ||                    // ✅ FIX: Short URL format
-               path.startsWith("/uploads/") ||
+               path.startsWith("/s/") ||                         // Public share links
+               path.startsWith("/uploads/") ||                   // Static uploads
                path.equals("/") ||
                path.equals("/error");
     }

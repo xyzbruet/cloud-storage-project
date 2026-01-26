@@ -44,26 +44,27 @@ public class SecurityConfig {
 
             // 4️⃣ Authorization rules - ORDER MATTERS! More specific patterns first
             .authorizeHttpRequests(auth -> auth
-                // ✅ FIX: Public share links MUST come BEFORE the JWT filter is applied
-                // These endpoints don't require authentication
+                // ✅ OPTIONS requests - must come first for CORS preflight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 
+                // ✅ Public share links - no authentication needed
                 .requestMatchers("/s/**").permitAll()                    // All public share links
                 .requestMatchers("/api/files/s/**").permitAll()          // File share links
                 .requestMatchers("/api/folders/s/**").permitAll()        // Folder share links
                 .requestMatchers("/uploads/**").permitAll()              // Static uploads
                 
-                // Public auth endpoints
+                // ✅ Public auth endpoints
                 .requestMatchers(
                     "/",
                     "/api/health",
                     "/actuator/health",
                     "/error",
                     "/api/auth/login",
-                    "/api/auth/register"
+                    "/api/auth/register",
+                    "/api/auth/google-login"     // ✅ NEW: Google OAuth endpoint
                 ).permitAll()
 
-                // Protected endpoints - require authentication
+                // ✅ Protected endpoints - require authentication
                 .requestMatchers(
                     "/api/auth/me",
                     "/api/user/**",
@@ -72,7 +73,7 @@ public class SecurityConfig {
                     "/api/dashboard/**"
                 ).authenticated()
 
-                // All other requests require authentication
+                // ✅ All other requests require authentication
                 .anyRequest().authenticated()
             )
 

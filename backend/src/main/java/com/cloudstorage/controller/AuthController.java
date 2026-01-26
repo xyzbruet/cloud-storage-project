@@ -80,11 +80,11 @@ public class AuthController {
     //     return ResponseEntity.ok(ApiResponse.success(response));
     // }
 
-    // ================= FUTURE: GOOGLE LOGIN =================
-    // @PostMapping("/google-login")
-    // public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
-    //         @Valid @RequestBody GoogleLoginRequest request) {
-    //     AuthResponse response = authService.googleLogin(request);
-    //     return ResponseEntity.ok(ApiResponse.success(response));
-    // }
+    //================= FUTURE: GOOGLE LOGIN =================
+    @PostMapping("/google-login")
+    public ResponseEntity<ApiResponse<AuthResponse>> googleLogin(
+            @Valid @RequestBody GoogleLoginRequest request) {
+        AuthResponse response = authService.googleLogin(request);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
 }

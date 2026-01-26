@@ -93,6 +93,14 @@ jwt:
   expiration: ${JWT_EXPIRATION:604800000}
 
 # ===============================
+# GOOGLE OAUTH 2.0
+# ===============================
+google:
+  client:
+    id: ${GOOGLE_CLIENT_ID:}
+    secret: ${GOOGLE_CLIENT_SECRET:}
+
+# ===============================
 # LOGGING
 # ===============================
 logging:
