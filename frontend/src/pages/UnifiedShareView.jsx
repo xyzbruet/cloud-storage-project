@@ -7,70 +7,93 @@ import SharedFolderView from './SharedFolderView';
 // Backend base URL (without /api for public share endpoints)
 const BACKEND_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8080';
 
+console.log('🔧 UnifiedShareView - BACKEND_BASE:', BACKEND_BASE);
+
 export default function UnifiedShareView() {
   const { token } = useParams();
   const navigate = useNavigate();
   const [resourceType, setResourceType] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [responseData, setResponseData] = useState(null);
 
   const detectResourceType = async () => {
     try {
       setLoading(true);
       
       // Public share endpoints don't use /api prefix
-      const response = await fetch(`${BACKEND_BASE}/s/${token}`);
+      const url = `${BACKEND_BASE}/s/${token}`;
+      console.log('📡 Detecting resource type from:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'omit', // ✅ Don't send auth cookies for public links
+      });
+      
+      console.log('📊 Response status:', response.status);
       
       if (!response.ok) {
+        let errorMsg = 'Failed to load shared content';
+        
         if (response.status === 404) {
-          setError('This link is invalid or has expired');
+          errorMsg = 'This link is invalid or has expired';
         } else if (response.status === 403) {
-          setError('You do not have permission to access this content');
+          errorMsg = 'You do not have permission to access this content';
         } else if (response.status === 400) {
-          setError('Invalid share link format');
+          errorMsg = 'Invalid share link format';
         } else if (response.status === 500) {
-          setError('Server error - The file owner needs to check their server configuration');
-        } else {
-          setError('Failed to load shared content');
+          errorMsg = 'Server error - The file owner needs to check their server configuration';
         }
-        setLoading(false);
-        return;
+        
+        throw new Error(errorMsg);
       }
       
       const data = await response.json();
       const content = data.data || data;
       
-      console.log('📦 Received content:', content); // Debug log
+      console.log('📦 Received content:', content);
+      console.log('🔍 Checking resource type...');
+      console.log('  - isFolder:', content.isFolder);
+      console.log('  - mimeType:', content.mimeType);
+      console.log('  - subfolders:', Array.isArray(content.subfolders) ? `array (${content.subfolders.length} items)` : content.subfolders);
+      console.log('  - files:', Array.isArray(content.files) ? `array (${content.files.length} items)` : content.files);
+      console.log('  - size:', content.size);
+      console.log('  - name:', content.name);
+      
+      // Store the full response data
+      setResponseData(content);
       
       // Detect type by checking response structure
-      // Folders have subfolders/files arrays, files don't
-      if (
-        content.subfolders !== undefined || 
-        content.files !== undefined ||
-        content.isFolder === true ||
-        (Array.isArray(content.subfolders) || Array.isArray(content.files))
-      ) {
-        console.log('✅ Detected as FOLDER');
+      // ✅ IMPORTANT: Check isFolder FIRST, then mimeType, then arrays
+      if (content.isFolder === true || content.mimeType === 'folder') {
+        console.log('✅ Detected as FOLDER (isFolder or mimeType flag)');
         setResourceType('folder');
-      } else if (content.name && content.size !== undefined) {
+      } else if (Array.isArray(content.subfolders) || Array.isArray(content.files)) {
+        console.log('✅ Detected as FOLDER (has subfolders or files arrays)');
+        setResourceType('folder');
+      } else if (content.name && (content.size !== undefined || content.mimeType)) {
         console.log('✅ Detected as FILE');
         setResourceType('file');
       } else {
-        console.error('❌ Unable to determine type:', content);
+        console.error('❌ Unable to determine type - checking all properties:', Object.keys(content));
         setError('Unable to determine content type');
       }
       
       setLoading(false);
       
     } catch (err) {
-      console.error('Failed to detect resource type:', err);
-      setError('Failed to load shared content');
+      console.error('❌ Failed to detect resource type:', err);
+      setError(err.message || 'Failed to load shared content');
       setLoading(false);
     }
   };
 
   useEffect(() => {
     if (token) {
+      console.log('🚀 UnifiedShareView mounted with token:', token);
       detectResourceType();
     } else {
       setError('Invalid share link - no token provided');
@@ -123,13 +146,34 @@ export default function UnifiedShareView() {
   }
 
   // Render the appropriate component based on detected type
+  console.log('🎯 Rendering component for resourceType:', resourceType);
+  
   if (resourceType === 'folder') {
-    return <SharedFolderView />;
+    console.log('📁 Rendering SharedFolderView with token:', token);
+    return <SharedFolderView token={token} data={responseData} />;
   }
   
   if (resourceType === 'file') {
-    return <SharedLinkView />;
+    console.log('📄 Rendering SharedLinkView with token:', token);
+    return <SharedLinkView token={token} />;
   }
 
-  return null;
+  // This shouldn't happen
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 to-orange-50 p-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+        <AlertCircle className="w-16 h-16 text-yellow-600 mx-auto mb-4" />
+        <h1 className="text-2xl font-bold text-gray-900 mb-3">Detection Error</h1>
+        <p className="text-gray-600 mb-6">
+          Unable to detect whether this is a file or folder. ResourceType: {resourceType}
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium"
+        >
+          Retry
+        </button>
+      </div>
+    </div>
+  );
 }

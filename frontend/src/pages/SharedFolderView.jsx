@@ -1,11 +1,12 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useState, useEffect, useCallback } from 'react';
 import { Folder, Eye, AlertCircle, ArrowLeft, Lock, FileText, Download, X, ChevronRight, Home, Image, Film, Music, File } from 'lucide-react';
 
-// Backend base URL (without /api for public share endpoints)
+// ✅ CRITICAL: Use direct fetch, NOT the api service (which adds auth headers)
 const BACKEND_BASE = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:8080';
 
-// Utility functions
+console.log('🔧 SharedFolderView - BACKEND_BASE:', BACKEND_BASE);
+
 const formatFileSize = (bytes) => {
   if (!bytes) return 'Unknown size';
   const units = ['B', 'KB', 'MB', 'GB'];
@@ -22,15 +23,19 @@ const formatFileSize = (bytes) => {
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  } catch (e) {
+    return '';
+  }
 };
 
 const getFileIcon = (file) => {
-  const fileName = file.name.toLowerCase();
+  const fileName = file.name?.toLowerCase() || '';
   const mimeType = file.mimeType?.toLowerCase() || '';
   
   if (mimeType.startsWith('image/') || fileName.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i)) {
@@ -46,21 +51,22 @@ const getFileIcon = (file) => {
 };
 
 const canPreviewFile = (file) => {
-  const fileName = file.name.toLowerCase();
+  const fileName = file.name?.toLowerCase() || '';
+  const mimeType = file.mimeType?.toLowerCase() || '';
   return (
     fileName.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i) ||
     fileName.match(/\.(mp4|webm|ogg|mov)$/i) ||
     fileName.match(/\.(mp3|wav|ogg)$/i) ||
     fileName.endsWith('.pdf') ||
-    file.mimeType?.startsWith('image/') ||
-    file.mimeType?.startsWith('video/') ||
-    file.mimeType?.startsWith('audio/') ||
-    file.mimeType === 'application/pdf'
+    mimeType.startsWith('image/') ||
+    mimeType.startsWith('video/') ||
+    mimeType.startsWith('audio/') ||
+    mimeType === 'application/pdf'
   );
 };
 
-export default function SharedFolderView() {
-  const { token } = useParams();
+// ✅ Accept token and data as props from UnifiedShareView
+export default function SharedFolderView({ token, data }) {
   const navigate = useNavigate();
   const [folder, setFolder] = useState(null);
   const [files, setFiles] = useState([]);
@@ -72,66 +78,86 @@ export default function SharedFolderView() {
   const [currentPath, setCurrentPath] = useState([]);
   const [downloadingFiles, setDownloadingFiles] = useState(new Set());
 
-  // Fetch shared folder
+  // ✅ Initialize with data from props if available
+  useEffect(() => {
+    console.log('🚀 SharedFolderView mounted with token:', token);
+    console.log('📦 Received data from props:', data);
+    
+    if (data) {
+      console.log('✅ Using data from props');
+      setFolder(data);
+      setFiles(Array.isArray(data.files) ? data.files : []);
+      setSubfolders(Array.isArray(data.subfolders) ? data.subfolders : []);
+      setLoading(false);
+    } else if (token) {
+      console.log('📡 Fetching folder data for token:', token);
+      fetchSharedFolder(null);
+    } else {
+      setError('Invalid share link - no token provided');
+      setLoading(false);
+    }
+  }, [token, data]);
+
   const fetchSharedFolder = useCallback(async (subfolderId = null) => {
     try {
       setLoading(true);
+      setError(null);
       
-      console.log('🔗 Fetching shared folder with token:', token, 'subfolder:', subfolderId);
-      
-      // ✅ Use BACKEND_BASE with the universal endpoint
       let url = `${BACKEND_BASE}/s/${token}`;
       if (subfolderId) {
         url += `/folder/${subfolderId}`;
       }
       
-      console.log('🌐 Fetching URL:', url);
+      console.log('📡 Fetching from:', url);
       
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'omit', // ✅ Critical: don't send cookies
+      });
       
-      console.log('📡 Response status:', response.status);
+      console.log('📊 Response status:', response.status);
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
+        let errorMsg = 'Failed to load shared folder';
         
         if (response.status === 404) {
-          throw new Error('This link is invalid or has expired');
+          errorMsg = 'This link is invalid or has expired';
         } else if (response.status === 403) {
-          throw new Error('You do not have permission to access this folder');
-        } else {
-          throw new Error('Failed to load shared folder');
+          errorMsg = 'You do not have permission to access this folder';
+        } else if (response.status === 401) {
+          errorMsg = 'Authentication issue - this share link is misconfigured';
+        } else if (response.status === 400) {
+          errorMsg = 'Invalid request format';
+        } else if (response.status === 500) {
+          errorMsg = 'Server error - please try again later';
         }
+        
+        throw new Error(errorMsg);
       }
       
-      const data = await response.json();
-      console.log('📦 Received data:', data);
+      const apiData = await response.json();
+      const folderData = apiData.data || apiData;
       
-      const folderData = data.data || data;
+      console.log('✅ Data received:', folderData);
+      
       setFolder(folderData);
-      setFiles(folderData.files || []);
-      setSubfolders(folderData.subfolders || []);
-      setError(null);
+      setFiles(Array.isArray(folderData.files) ? folderData.files : []);
+      setSubfolders(Array.isArray(folderData.subfolders) ? folderData.subfolders : []);
       
     } catch (err) {
-      console.error('❌ Failed to fetch shared folder:', err);
-      setError(err.message);
+      console.error('❌ Error fetching folder:', err);
+      setError(err.message || 'Failed to load shared folder');
+      setFolder(null);
+      setFiles([]);
+      setSubfolders([]);
     } finally {
       setLoading(false);
     }
   }, [token]);
 
-  // Initial load
-  useEffect(() => {
-    if (token) {
-      fetchSharedFolder();
-    } else {
-      setError('Invalid share link - no token provided');
-      setLoading(false);
-    }
-  }, [token, fetchSharedFolder]);
-
-  // Cleanup preview URL
   useEffect(() => {
     return () => {
       if (previewUrl) {
@@ -140,7 +166,6 @@ export default function SharedFolderView() {
     };
   }, [previewUrl]);
 
-  // Handle ESC key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape' && previewFile) {
@@ -155,17 +180,17 @@ export default function SharedFolderView() {
   const downloadFile = async (fileId, fileName) => {
     try {
       setDownloadingFiles(prev => new Set(prev).add(fileId));
-      console.log('⬇️ Downloading file:', fileId, 'with token:', token);
       
-      // ✅ Use BACKEND_BASE for download endpoint
       const url = `${BACKEND_BASE}/s/${token}/download?fileId=${fileId}`;
       
-      console.log('🔄 Downloading from:', url);
-      const response = await fetch(url);
+      console.log('⬇️ Downloading from:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'omit',
+      });
       
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Download failed:', response.status, errorText);
         throw new Error(`Download failed with status ${response.status}`);
       }
       
@@ -178,7 +203,8 @@ export default function SharedFolderView() {
       a.click();
       document.body.removeChild(a);
       window.URL.revokeObjectURL(downloadUrl);
-      console.log('✅ Download successful');
+      
+      console.log('✅ Download complete:', fileName);
       
     } catch (err) {
       console.error('❌ Download failed:', err);
@@ -197,19 +223,20 @@ export default function SharedFolderView() {
       setPreviewFile(file);
       setPreviewUrl(null);
       
-      console.log('👁️ Previewing file:', file);
-      
       if (!canPreviewFile(file)) {
         alert('Preview not available for this file type. Please download to view.');
         setPreviewFile(null);
         return;
       }
       
-      // ✅ Use BACKEND_BASE for preview endpoint
       const url = `${BACKEND_BASE}/s/${token}/download?fileId=${file.id}`;
       
-      console.log('🔄 Loading preview from:', url);
-      const response = await fetch(url);
+      console.log('👁️ Loading preview from:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        credentials: 'omit',
+      });
       
       if (!response.ok) {
         throw new Error(`Failed to load preview: ${response.status}`);
@@ -218,7 +245,8 @@ export default function SharedFolderView() {
       const blob = await response.blob();
       const previewBlobUrl = window.URL.createObjectURL(blob);
       setPreviewUrl(previewBlobUrl);
-      console.log('✅ Preview loaded successfully');
+      
+      console.log('✅ Preview loaded');
       
     } catch (err) {
       console.error('❌ Preview failed:', err);
@@ -236,7 +264,6 @@ export default function SharedFolderView() {
   };
 
   const handleSubfolderClick = async (subfolder) => {
-    console.log('📁 Opening subfolder:', subfolder);
     const newPath = [...currentPath, { id: subfolder.id, name: subfolder.name }];
     setCurrentPath(newPath);
     await fetchSharedFolder(subfolder.id);
@@ -300,10 +327,44 @@ export default function SharedFolderView() {
     );
   }
 
+  if (!folder) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-yellow-50 to-orange-50 p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
+          <div className="w-20 h-20 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-yellow-600" />
+          </div>
+          
+          <h1 className="text-2xl font-bold text-gray-900 mb-3">
+            No Folder Data
+          </h1>
+          
+          <p className="text-gray-600 mb-6">
+            The folder data could not be loaded. Please try again or contact the person who shared this link.
+          </p>
+          
+          <button
+            onClick={() => fetchSharedFolder()}
+            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition font-medium mb-3"
+          >
+            Retry
+          </button>
+          
+          <button
+            onClick={() => navigate('/login')}
+            className="w-full px-6 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition font-medium flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-5 h-5" />
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-4 md:p-8">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
           <button
             onClick={() => navigate('/login')}
@@ -328,9 +389,7 @@ export default function SharedFolderView() {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Folder Header */}
           <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-8 text-white">
             <div className="flex items-start gap-4">
               <div className="w-16 h-16 bg-white bg-opacity-20 rounded-xl flex items-center justify-center flex-shrink-0">
@@ -353,7 +412,6 @@ export default function SharedFolderView() {
             </div>
           </div>
 
-          {/* Breadcrumb Navigation */}
           {currentPath.length > 0 && (
             <div className="border-b bg-gray-50 px-8 py-3">
               <div className="flex items-center gap-2 text-sm overflow-x-auto">
@@ -379,7 +437,6 @@ export default function SharedFolderView() {
             </div>
           )}
 
-          {/* Content Area */}
           <div className="p-8">
             {subfolders.length === 0 && files.length === 0 ? (
               <div className="text-center py-12">
@@ -388,7 +445,6 @@ export default function SharedFolderView() {
               </div>
             ) : (
               <div className="space-y-6">
-                {/* Subfolders */}
                 {subfolders.length > 0 && (
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 mb-3">
@@ -420,7 +476,6 @@ export default function SharedFolderView() {
                   </div>
                 )}
 
-                {/* Files */}
                 {files.length > 0 && (
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 mb-3">
@@ -489,7 +544,6 @@ export default function SharedFolderView() {
               </div>
             )}
 
-            {/* Security Notice */}
             <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
@@ -506,7 +560,6 @@ export default function SharedFolderView() {
           </div>
         </div>
 
-        {/* Footer */}
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-600">
             Want to share folders like this?{' '}
@@ -520,7 +573,6 @@ export default function SharedFolderView() {
         </div>
       </div>
 
-      {/* Preview Modal */}
       {previewFile && (
         <div 
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
