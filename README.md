@@ -1,41 +1,65 @@
-# Frontend - Cloud Storage
+# ☁️ Cloud Storage System
 
-This is the **React frontend** for the Cloud Storage project.
-
-It provides the user interface for uploading, downloading, and managing files.
+A **Full-Stack Cloud Storage Application** built using **React** and **Spring Boot**.
+This project allows users to upload, store, manage, download, and delete files through a modern web interface.
 
 ---
 
-## ⚙ Backend Documentation
+## 📚 Project Documentation
 
-The backend of this project is built using **Spring Boot**.
+All detailed setup instructions and implementation details are available in the module documentation below.
 
-👉 Click below to view backend setup and API documentation:
+### 🎨 Frontend
 
-🔗 **Backend Guide**
+React-based user interface for file management.
+
+➡ **Frontend Documentation**
+https://github.com/xyzbruet/cloud-storage-project/blob/main/frontend/frontend-README.md
+
+---
+
+### ⚙️ Backend
+
+Spring Boot REST API responsible for handling file storage and management.
+
+➡ **Backend Documentation**
 https://github.com/xyzbruet/cloud-storage-project/blob/main/backend/backend-README.md
 
 ---
 
-## 🚀 Frontend Setup
+## 🛠 Technology Stack
 
-```bash
-npm install
-npm run dev
+* React
+* Spring Boot
+* Java
+* REST API
+* Docker
+
+---
+
+## 📁 Repository Structure
+
 ```
-
-Frontend will run on:
-
-```
-http://localhost:5173
+cloud-storage-project
+│
+├── frontend
+│   └── frontend-README.md
+│
+├── backend
+│   └── backend-README.md
+│
+└── README.md
 ```
 
 ---
 
-## 🛠 Tech Stack
+## 👨‍💻 Author
 
-* React
-* Axios
-* HTML
-* CSS
-* JavaScript
+**Mahendra Vaidya**
+
+GitHub
+https://github.com/xyzbruet
+
+---
+
+⭐ If you find this project useful, consider giving it a **star on GitHub**.
